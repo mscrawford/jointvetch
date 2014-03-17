@@ -1,28 +1,35 @@
 package jointvetch;
 
-public class Parameters
+class Parameters
 {
-	// independent
-	public static double stochMax;
-	public static double adjustmentFactor;
-	public static boolean hydrochoryBool;
-	public static double implantationRate;
-	public static double seedBankRate;
+	// independent variables
+	static double stochMax;
+	static boolean hydrochoryBool;
+	static double implantationRate;
+	static double seedBankRate;
+
+	// linear scaling & simulation warm up
+	static final double ADJUSTMENT_FACTOR = 0.18;
+	static final int ENVIRONMENTAL_GRACE_PERIOD = 3;
+	
+	// fuzzy distance measurements to correct for error.
+	static final double BUFFER_SIZE = 0.01;
 
 	// set parameters
-	public static final double HYDROCHORY_PROB = 0.340;
-	public static final double WINTER_SURVIVAL_RATE = 0.379;
+	static final double HYDROCHORY_PROB = 0.340;
+	static final double WINTER_SURVIVAL_RATE = 0.379;
+	static final double IMPLANTATION_MAXIMUM_DISTANCE = 4.0;
 
 	// environment's parameters
-	public static final int MAX_YEAR_COUNT = 100;
-	public static final int MAX_POPULATION_COUNT = 25000;
+	static final int MAX_YEAR_COUNT = 100;
+	static final int MAX_POPULATION_COUNT = 15000;
 
 	// DBSCAN implementation
-	public static final double EPSILON = 25.0;
-	public static final int MIN_POINTS = 1;
+	static final double EPSILON = 25.0;
+	static final int MIN_POINTS = 1;
 
-	// Plots
-	public static final int CARRYING_CAPACITY = 50; // per m^2 "plot"
+	// Plots parameters
+	static final int CARRYING_CAPACITY = 50; // per m^2 "plot"
 
 	/* Look up tables; the "goodness" of a square to its vital rates */
 	/* Fecundity distibution */
@@ -134,13 +141,17 @@ public class Parameters
 	static
 	{
 		stochMax = HoltsCreek.instance().getStochMax();
-		adjustmentFactor = HoltsCreek.instance().getAdjustmentFactor();
 		hydrochoryBool = HoltsCreek.instance().getHydrochoryBool();
 		implantationRate = HoltsCreek.instance().getImplantationRate();
-		seedBankRate = HoltsCreek.instance().getSeedBankRate();		
+		seedBankRate = HoltsCreek.instance().getSeedBankRate();	
 	}
 
-	public static double getGermRate(int color)
+	// Suppress default constructor for noninstantiability
+	private Parameters() {
+		throw new AssertionError();
+	}
+
+	static double getGermRate(int color)
 	{
 		if (color < 0 || color > 255)
 		{
@@ -150,7 +161,7 @@ public class Parameters
 		return (c>1 ? 1:c);
 	}
 
-	public static double getSurvRate(int color)
+	static double getSurvRate(int color)
 	{
 		if (color < 0 || color > 255)
 		{
@@ -160,7 +171,7 @@ public class Parameters
 		return (s>1 ? 1:s);
 	}
 
-	public static int getFecundity(int color)
+	static int getFecundity(int color)
 	{
 		if (color < 0 || color > 255)
 		{

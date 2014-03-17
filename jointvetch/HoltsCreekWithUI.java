@@ -24,23 +24,28 @@ import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Point;
 import com.vividsolutions.jts.io.ParseException;
 
+
+import sim.portrayal.grid.FastValueGridPortrayal2D;
+import sim.util.gui.SimpleColorMap;
+
 /**
  * GUI interface of HoltsCreek.
  * @author Mike
  */
 
-public class HoltsCreekWithUI extends GUIState
+class HoltsCreekWithUI extends GUIState
 {
 	private static final int HEIGHT = 700; 
 	private static final int WIDTH = 650;
 
-	public static Display2D display;
-	public static JFrame displayFrame;
+	static Display2D display;
+	static JFrame displayFrame;
 
 	private static GeomVectorFieldPortrayal riverPortrayal = new GeomVectorFieldPortrayal();
 	private static GeomVectorFieldPortrayal tidalPortrayal = new GeomVectorFieldPortrayal();
 	private static GeomVectorFieldPortrayal tidalBoundaryPortrayal = new GeomVectorFieldPortrayal();   
 	private static GeomVectorFieldPortrayal reproducingPlantsPortrayal = new GeomVectorFieldPortrayal();
+	private static FastValueGridPortrayal2D gridPortrayal = new FastValueGridPortrayal2D();
 
 	public HoltsCreekWithUI(String[] args) throws ParseException
 	{
@@ -68,7 +73,7 @@ public class HoltsCreekWithUI extends GUIState
 		setupPortrayals();
 	}
 	
-	public static void setupPortrayals()
+	static void setupPortrayals()
 	{
 		HoltsCreek world = HoltsCreek.instance();
 
@@ -84,6 +89,9 @@ public class HoltsCreekWithUI extends GUIState
 		reproducingPlantsPortrayal.setField(world.reproducingPlants_vectorField);
 		reproducingPlantsPortrayal.setPortrayalForAll(new GeomPortrayal(Color.RED, .1, true));
 
+		gridPortrayal.setField(world.colorRaster_GridField.getGrid());
+		gridPortrayal.setMap(new SimpleColorMap(0, 255, Color.black, Color.white));
+
 		display.reset();
         display.setBackdrop(Color.WHITE);
 		display.repaint();
@@ -95,9 +103,11 @@ public class HoltsCreekWithUI extends GUIState
 		display = new Display2D(WIDTH, HEIGHT, this);		
 
 		display.attach(tidalPortrayal, "Tidal areas", true);
-		display.attach(riverPortrayal, "Rivers", true);
+		
 		display.attach(tidalBoundaryPortrayal, "Tidal boundary", true);
 		display.attach(reproducingPlantsPortrayal, "Reproducing Plants", true);
+		display.attach(gridPortrayal, "My Grid Layer");
+		display.attach(riverPortrayal, "Rivers", true);
 
 		displayFrame = display.createFrame();
 		c.registerFrame(displayFrame);
@@ -105,7 +115,7 @@ public class HoltsCreekWithUI extends GUIState
 		display.removeListeners();	
 	}
 
-	public static void takeSnapshot()
+	static void takeSnapshot()
 	{
 		String pathname = "/users/michaelcrawford/Desktop/runs/" + Integer.toString(new Integer(Environment.instance().getYear()));
 		System.out.println(pathname);
@@ -114,9 +124,7 @@ public class HoltsCreekWithUI extends GUIState
 		{
 			jfc.getFileSystemView().createFileObject(pathname).createNewFile();
 			display.takeSnapshot(jfc.getFileSystemView().createFileObject(pathname), 1); 
-		} 
-		catch (Exception e)
-		{
+		} catch (Exception e) {
 			System.out.println("Screenshot fail");
 		}
 	}
@@ -124,8 +132,7 @@ public class HoltsCreekWithUI extends GUIState
 	public void quit()
 	{
 		super.quit();
-		if (displayFrame != null) 
-		{ 
+		if (displayFrame != null) { 
 			displayFrame.dispose(); 
 		}
 		displayFrame = null;

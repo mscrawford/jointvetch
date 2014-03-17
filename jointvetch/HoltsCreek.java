@@ -25,45 +25,44 @@ import com.vividsolutions.jts.linearref.LengthIndexedLine;
 /**
  * @author Michael Crawford
  */
-public class HoltsCreek extends SimState
+class HoltsCreek extends SimState
 {
-	private static HoltsCreek theInstance;
+	private static HoltsCreek instance;
 
 	/* data files */
 	private static final String pampoint = "/data/Pampoint/Pampoint_All.shp";
-	// private static final String pampoint = "/data/testClustersNoHydrochory/testClusters.shp";
-	// private static final String pampoint = "/data/testClustersWithHydrochory/testClustersWithHydrochory.shp";
-
 	private static final String flowline = "/data/riverFlow/riverFlow.shp";
+	private static final String flowArea = "/data/riverArea/riverArea.shp";
 	private static final String waterbody = "/data/Waterbody/waterbody.shp";
-	private static final String rasterFile = "data/waterbody_raster/waterbody_raster.asc"; /* competition */
+	private static final String rasterFile = "data/waterbody_raster/waterbody_raster.asc"; /* goodness */
 
 	private static final String seedFloatTimesFile = "data/seedFloatTimes.txt";
 
-	public GeometryFactory factory = new GeometryFactory();
+	GeometryFactory factory = new GeometryFactory();
 	private Envelope MBR = new Envelope();
 
 	/* plant geometries */
-	public GeomVectorField initialPlant_vectorField = new GeomVectorField();
-	public GeomVectorField reproducingPlants_vectorField = new GeomVectorField(); // used by DBSCAN
-	public GeomVectorField plants_vectorField = new GeomVectorField(); // used for carrying capacity
+	GeomVectorField initialPlant_vectorField = new GeomVectorField();
+	GeomVectorField reproducingPlants_vectorField = new GeomVectorField(); // used by DBSCAN
 
 	/* geographic geometries, the network of rivers and tidally innundated landmass */
-	public GeomVectorField river_vectorField = new GeomVectorField();
-	public GeomVectorField tidal_vectorField = new GeomVectorField();
-	public GeomVectorField boundary_vectorField = new GeomVectorField();
-	public GeomPlanarGraph river_Network = new GeomPlanarGraph(); // the directed graph/network
+	GeomVectorField river_vectorField = new GeomVectorField();
+	GeomVectorField riverArea_vectorField = new GeomVectorField();
+	GeomVectorField tidal_vectorField = new GeomVectorField();
+	GeomVectorField boundary_vectorField = new GeomVectorField();
+	GeomPlanarGraph river_Network = new GeomPlanarGraph(); // the directed graph/network
 
 	/* competition & carrying capacity rasters */
-	public GeomGridField colorRaster_GridField = new GeomGridField();
-	public GeomGridField plotGrid_GridField = new GeomGridField();
+	GeomGridField colorRaster_GridField = new GeomGridField();
+	GeomGridField plotGrid_GridField = new GeomGridField();
+	int rasterHeight, rasterWidth;
 
 	/* geometries for distance detection */
-	public MultiLineString river_Geometries;
-	public Geometry river_Boundary;
-	public MultiPolygon tidal_Geometries;
-	public Geometry tidal_Boundary;
-
+	MultiLineString river_Geometries;
+	MultiPolygon tidal_Geometries;
+	Geometry tidal_Boundary;
+	MultiPolygon riverArea_Geometries;
+	
 	/* independent variables */
 	private double adjustmentFactor;
 	private double stochMax;
@@ -72,29 +71,28 @@ public class HoltsCreek extends SimState
 	private double seedBankRate;
 
 	/* seed floatation data, see methods */
-	public int[] seedFloatTimes = new int[499];
+	int[] seedFloatTimes = new int[499];
+
+	static final int RIVER_RASTER_COLOR = -9999;
 
 	private static final double PLANT_DROP_DIST_MAX = 2.0; // meters
 
 	/* creating the instance */
-	public static synchronized HoltsCreek instance(long seed, String[] args)
+	static synchronized HoltsCreek instance(long seed, String[] args)
 	{
-		if (theInstance == null)
+		if (instance == null)
 		{
-			theInstance = new HoltsCreek(seed, args);
+			instance = new HoltsCreek(seed, args);
 		}
-		return theInstance;
+		return instance;
 	}
 
 	/* getting the instance */
-	public static synchronized HoltsCreek instance()
+	static synchronized HoltsCreek instance()
 	{
-		if (theInstance == null)
-		{
-			System.out.println("There is no instance to work on. Wrong constructor being called.");
-			System.exit(0);
-		}
-		return theInstance;
+		if (instance == null) throw new AssertionError();
+		
+		return instance;
 	}
 
 	private HoltsCreek(long seed, String[] args)
@@ -102,10 +100,9 @@ public class HoltsCreek extends SimState
 		super(seed);
 
 		stochMax = Double.parseDouble(args[0]);
-		adjustmentFactor = Double.parseDouble(args[1]);
-		hydrochoryBool = Boolean.parseBoolean(args[2]);
-		implantationRate = Double.parseDouble(args[3]);
-		seedBankRate = Double.parseDouble(args[4]);
+		hydrochoryBool = Boolean.parseBoolean(args[1]);
+		implantationRate = Double.parseDouble(args[2]);
+		seedBankRate = Double.parseDouble(args[3]); // unused
 	}
 
 	public static void main(String[] args) throws Exception
@@ -142,9 +139,9 @@ public class HoltsCreek extends SimState
 		try {
 			initialPlant_vectorField.clear();
 			reproducingPlants_vectorField.clear();
-			plants_vectorField.clear();
 
 			river_vectorField.clear();
+			riverArea_vectorField.clear();
 			tidal_vectorField.clear();
 			boundary_vectorField.clear();
 
@@ -152,14 +149,19 @@ public class HoltsCreek extends SimState
 			plotGrid_GridField.clear();
 
 			// joint-vetch Populations
-			URL Pampoint = HoltsCreek.class.getResource(pampoint);
-			ShapeFileImporter.read(Pampoint, initialPlant_vectorField);
+			URL pampnt = HoltsCreek.class.getResource(pampoint);
+			ShapeFileImporter.read(pampnt, initialPlant_vectorField);
 			MBR.expandToInclude(initialPlant_vectorField.getMBR());
 
 			// river network
 			URL riverFlow = HoltsCreek.class.getResource(flowline);
 			ShapeFileImporter.read(riverFlow, river_vectorField);
 			MBR.expandToInclude(river_vectorField.getMBR());
+
+			// river area
+			URL riverArea = HoltsCreek.class.getResource(waterbody);
+			ShapeFileImporter.read(riverArea, riverArea_vectorField);
+			MBR.expandToInclude(riverArea_vectorField.getMBR());
 
 			// tidal areas
 			URL tidalArea = HoltsCreek.class.getResource(waterbody);
@@ -173,45 +175,63 @@ public class HoltsCreek extends SimState
 			InputStream is = new FileInputStream(rasterFile);
 			ArcInfoASCGridImporter.read(is, GridDataType.INTEGER, colorRaster_GridField);
 			MBR.expandToInclude(colorRaster_GridField.getMBR());
-			int rasterHeight = colorRaster_GridField.getGridHeight();
-			int rasterWidth = colorRaster_GridField.getGridWidth();
+			rasterHeight = colorRaster_GridField.getGridHeight();
+			rasterWidth = colorRaster_GridField.getGridWidth();
 
 			// plot grid
-			ObjectGrid2D plotGrid = new ObjectGrid2D(rasterWidth, rasterWidth);
+			ObjectGrid2D plotGrid = new ObjectGrid2D(rasterWidth, rasterHeight);
 			plotGrid_GridField.setGrid(plotGrid);
 			MBR.expandToInclude(plotGrid_GridField.getMBR());
 
 			// set MBR for all GeomVectorFields
 			initialPlant_vectorField.setMBR(MBR);
 			reproducingPlants_vectorField.setMBR(MBR);
-			plants_vectorField.setMBR(MBR);
 
 			river_vectorField.setMBR(MBR);
 			tidal_vectorField.setMBR(MBR);
+			riverArea_vectorField.setMBR(MBR);
 			boundary_vectorField.setMBR(MBR);
-
 			colorRaster_GridField.setMBR(MBR);
 			plotGrid_GridField.setMBR(MBR);
+
+			/* ------------------------
+ 			* Pixel height has to be set or else the raster grid will be off alignment.
+ 			* ------------------------ */
+			colorRaster_GridField.setPixelHeight(1.0); 
+			colorRaster_GridField.setPixelWidth(1.0);
+
+			plotGrid_GridField.setPixelHeight(1.0);
+			plotGrid_GridField.setPixelWidth(1.0);
 
 			/* Insert the river_vectorField geometries into a GeometryCollection (MultiLineString)
 				for distance sorting, see Plant.java */
 			Bag r_bag = river_vectorField.getGeometries();
 			LineString[] r_arr = new LineString[r_bag.size()];
-			for (int i = 0; i < r_bag.size(); i++)
+			for (int i = 0, s = r_bag.size(); i < s; i++)
 			{
 				r_arr[i] = (LineString) ( (MasonGeometry) r_bag.get(i) ).getGeometry();
 			}
 			river_Geometries = new MultiLineString(r_arr, factory);
 
+			/* Insert the riverArea geometries into a GeometryCollection (MultiPolygon) */
+			Bag ra_bag = riverArea_vectorField.getGeometries();
+			Polygon[] ra_arr = new Polygon[ra_bag.size()];
+			for (int i = 0, s = ra_bag.size(); i < s; i++)
+			{
+				ra_arr[i] = (Polygon) ( (MasonGeometry) ra_bag.get(i) ).getGeometry();
+			}
+			riverArea_Geometries = new MultiPolygon(ra_arr, factory);
+
 			/* Insert the waterBody geometries into a GeometryCollection (MultiPolygon) for
 				distance sorting, see Plant.java */
 			Bag t_bag = tidal_vectorField.getGeometries();
 			Polygon[] t_arr = new Polygon[t_bag.size()];
-			for (int i = 0; i < t_bag.size(); i++)
+			for (int i = 0, s = t_bag.size(); i < s; i++)
 			{
 				t_arr[i] = (Polygon) ( (MasonGeometry) t_bag.get(i) ).getGeometry();
 			}
 			tidal_Geometries = new MultiPolygon(t_arr, factory);
+
 			tidal_Boundary = tidal_Geometries.getBoundary(); /* Take the boundary of these geometries so
 				we can find how far the seed is to the river in Plant.java. */
 			boundary_vectorField.addGeometry(new MasonGeometry(tidal_Boundary));
@@ -224,11 +244,10 @@ public class HoltsCreek extends SimState
 			int index = 0;
 			while(s.hasNextDouble())
 			{
-				seedFloatTimes[index++] = (int) Math.ceil(s.nextDouble());
+				seedFloatTimes[index++] = (int) Math.ceil( s.nextDouble() );
 			}
-
-		} catch (FileNotFoundException ex) {
-			ex.printStackTrace();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
 		}
 	}
 
@@ -241,12 +260,12 @@ public class HoltsCreek extends SimState
 	private void setupInitialPlantPopulations()
 	{
 		Bag jointvetch_Bag = new Bag(initialPlant_vectorField.getGeometries());
-		random.setSeed(0);
-		for (int i=0; i<jointvetch_Bag.size(); i++)
+		// random.setSeed(0);
+		for (int i = 0, s = jointvetch_Bag.size(); i < s; i++)
 		{
-			sim.util.geo.MasonGeometry curPopulation = (sim.util.geo.MasonGeometry) jointvetch_Bag.get(i);
+			MasonGeometry curPopulation = (MasonGeometry) jointvetch_Bag.get(i);
 			int popSize = curPopulation.getIntegerAttribute("POPSIZE");
-			for (int j=0; j<popSize; j++)
+			for (int j = 0; j < popSize; j++)
 			{
 				double plantAngle = random.nextDouble() * 2 * Math.PI;
 				double plantDist = random.nextDouble() * PLANT_DROP_DIST_MAX;
@@ -277,23 +296,23 @@ public class HoltsCreek extends SimState
 		super.finish();
 	}
 
-	public double getStochMax() {
+	double getStochMax() {
 		return stochMax;
 	}
 
-	public double getAdjustmentFactor() {
+	double getAdjustmentFactor() {
 		return adjustmentFactor;
 	}
 
-	public double getImplantationRate() {
+	double getImplantationRate() {
 		return implantationRate;
 	}
 
-	public boolean getHydrochoryBool() {
+	boolean getHydrochoryBool() {
 		return hydrochoryBool;
 	}
 
-	public double getSeedBankRate() {
+	double getSeedBankRate() {
 		return seedBankRate;
 	}
 

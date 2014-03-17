@@ -3,32 +3,30 @@ package jointvetch;
 import java.util.*;
 import sim.field.grid.IntGrid2D;
 
-public class Plot
+class Plot
 {
 	private HoltsCreek hc;
 	private Environment e;
 
-	public enum PlotType { UNKNOWN, TRANSIENT, MEDIOCRE, THRIVING, DEAD };
+	enum PlotType { UNKNOWN, TRANSIENT, MEDIOCRE, THRIVING, DEAD };
 
-	public static final int YEARS_BEFORE_JUDGEMENT = 3;
-	public static final int CARRYING_CAPACITY_THRESHOLD = 40;
-	public static final int TRANSIENT_THESHOLD = 10;
+	private static final int JUDGEMENT_GRACE_PERIOD = 3;
+	private static final int JUDGEMENT_WINDOW = 5;
+	private static final int CARRYING_CAPACITY_THRESHOLD = 40;
+	private static final int TRANSIENT_THESHOLD = 10;
 
 	private int rasterColor;
 	private double germRate, survRate;
 	private int fecundity;
 
-	private double environmentalFactor;
-
 	private int year;
 	private int instantiationYear;
 	private int skipYears;
-	private ArrayList<Integer> historyCounts;
+	private List<Integer> historyCounts;
 
-	private int population;
-	private int culled;
+	private int population, culled;
 
-	public Plot(int x, int y)
+	Plot(int x, int y)
 	{
 		hc = HoltsCreek.instance();
 		e = Environment.instance();
@@ -37,28 +35,26 @@ public class Plot
 		population = 0;
 
 		historyCounts = new ArrayList<Integer>();
-		instantiationYear = e.getYear();
-		year = instantiationYear;
-		for (int i=0; i<year; i++)
+		instantiationYear = year = e.getYear();
+		for (int i = 0; i < year; i++)
 		{
 			historyCounts.add(0);
 		}
-		skipYears = instantiationYear + YEARS_BEFORE_JUDGEMENT;
+		skipYears = instantiationYear + JUDGEMENT_GRACE_PERIOD;
 
 		germRate = Parameters.getGermRate(rasterColor);
 		survRate = Parameters.getSurvRate(rasterColor);
 		fecundity = Parameters.getFecundity(rasterColor);
 	}
 
-	public void registerYearEnd()
+	void registerYearEnd(int year)
 	{
 		historyCounts.add(population-culled);
-		population = 0;
-		culled = 0;
-		year++;
+		population = culled = 0;
+		this.year = year;
 	}
 
-	public double getCarryingCapacityAdjustment()
+	double getCarryingCapacityAdjustment()
 	{
 		double adjusted;
 		double naive = (double) population;
@@ -75,38 +71,36 @@ public class Plot
 		return (n > 1.0 ? 1 : n);
 	}
 
-	public void registerNewPlant() {
+	void registerNewPlant() {
 		population++;
 	}
 
-	public void deregisterPlant() {
+	void deregisterPlant() {
 		culled++;
 	}
 
-	public double getGerminationProb() {
-		double n = germRate * e.getEnvironmentalStochasticity();
+	double getGerminationProb() {
+		double n = germRate * e.getEnvironmentalStochasticity() * Parameters.ADJUSTMENT_FACTOR;
 		return (n > 1.0 ? 1 : n);
 	}
 
-	public double getSurvivalProb() {
-		double n = survRate * e.getEnvironmentalStochasticity();
+	double getSurvivalProb() {
+		double n = survRate * e.getEnvironmentalStochasticity() * Parameters.ADJUSTMENT_FACTOR;
 		return (n > 1.0 ? 1 : n);
 	}
 
-	public int getFecundity() {
-		int n = (int) (fecundity * e.getEnvironmentalStochasticity());
+	int getFecundity() {
+		int n = (int) (fecundity * e.getEnvironmentalStochasticity() * Parameters.ADJUSTMENT_FACTOR);
 		return n;
 	}
 
-	public PlotType getPlotType()
+	PlotType getPlotType()
 	{
-		int mostRecentPopulation = historyCounts.get(year-1); // year is 1 ahead of the historyCounts.
-
-		if (year < skipYears) 
+		if (year < skipYears || year == 0) 
 		{
 			return PlotType.UNKNOWN;
 		}
-		else if (mostRecentPopulation == 0)
+		else if (year != 0 && historyCounts.get(historyCounts.size()-1) == 0)
 		{
 			return PlotType.DEAD;
 		}
@@ -114,9 +108,9 @@ public class Plot
 		{
 			double sum = 0;
 			int count = 0;
-			for (int i=0; i<historyCounts.size(); i++)
+			for (int i=0, s = historyCounts.size(); i < s; i++)
 			{
-				if (i >= skipYears && i >= historyCounts.size() - 3) // counting the last three years
+				if (i >= skipYears && i >= historyCounts.size() - JUDGEMENT_WINDOW) // counting the last three years
 				{
 					sum += historyCounts.get(i);
 					count++;
@@ -138,12 +132,12 @@ public class Plot
 		}
 	}
 
-	public ArrayList<Integer> getHistoryCounts()
+	List<Integer> getHistoryCounts()
 	{
 		return historyCounts;
 	}
 
-	public int getColor()
+	int getColor()
 	{
 		return rasterColor;
 	}

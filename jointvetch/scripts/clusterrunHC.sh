@@ -7,7 +7,7 @@ SSH="ssh -p 21212 mcrawford@199.111.89.20"
 
 echo "Suicide"
 cd $LOCALBASEDIR/jointvetch/jointvetch/scripts
-./suicide
+./suicide.sh
 
 echo "Removing .class files from server"
 $SSH "cd $REMOTEBASEDIR/jointvetch/jointvetch && \

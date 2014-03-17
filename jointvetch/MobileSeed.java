@@ -27,35 +27,18 @@ import com.vividsolutions.jts.operation.distance.DistanceOp;
  * end of this object's exhistence, will either implant, bank, or die.
  * @author Michael Crawford
  */
-public class MobileSeed implements Steppable
+class MobileSeed implements Steppable
 {
-	
-	public static int implants = 0;
-	public static int vectorFailedImplants = 0;
-	public static int rasterFailedImplants = 0;
-	public static int waterDrops = 0;
-
-
-
-
-
-
-
-
 	private HoltsCreek hc;
 	private Environment e;
 
 	private MasonGeometry location;
-	private int x, y, rasterColor;
 	private Plot myPlot;
 
 	/* hydrochory parameters */
 	private static final int TIDAL_PERIOD = 13; /* hours */
 	private int maxFloatTime; // represents	how long any given seed will survive in the river
 	private int floatTimer = 0; // counter to maxFloatTime
-	private double distanceThisHour; /* determined by Dr. Griffith's flow rate data, while taking into
-	account a sinusoidal tidal motion. */
-	private GeometryLocation entryLocation;  // the river point closest to the maternal plant
 	private LengthIndexedLine river_LengthIndexedLine = null;
 	private double startIndex = 0.0; // start position of current line
 	private double endIndex = 0.0;
@@ -71,16 +54,15 @@ public class MobileSeed implements Steppable
 	 * This is useful for our initial step to begin hydrochory.
 	 * @author Michael Crawford
 	 */
-	public MobileSeed(Coordinate dropLocation, GeometryLocation entryLocation)
+	MobileSeed(Coordinate dropLocation, GeometryLocation entryLocation)
 	{
 		hc = HoltsCreek.instance();
 		e = Environment.instance();
 
 		location = new MasonGeometry(hc.factory.createPoint(dropLocation));
 		location.isMovable = true;
-		this.entryLocation = entryLocation;
 
-		drop();
+		drop(entryLocation);
 	}
 
 	/**
@@ -89,8 +71,6 @@ public class MobileSeed implements Steppable
 	 */
 	public void step(SimState state)
 	{
-		hc = HoltsCreek.instance();
-		e = Environment.instance();
 		hydrochory();
 	}
 
@@ -102,29 +82,18 @@ public class MobileSeed implements Steppable
 	 * it will either be making a new object (BankedSeed or Plant) or die (not reschedule itself).
 	 * @author Michael Crawford
 	 */
-	private void drop()
+	private void drop(GeometryLocation entryLocation)
 	{
 		if (entryLocation != null)
 		{
 			Point entryPoint = hc.factory.createPoint(entryLocation.getCoordinate());
 			LineString closestRiverString = (LineString) entryLocation.getGeometryComponent();
 
-			
-// DID YOU DROP INTO THE WATER IMMEDIATELY?
-
-			// if (hc.random.nextBoolean(Parameters.HYDROCHORY_PROB))
 			int x = hc.colorRaster_GridField.toXCoord((Point) location.getGeometry());
 			int y = hc.colorRaster_GridField.toYCoord((Point) location.getGeometry());
 			int rasterColor = ((IntGrid2D) hc.colorRaster_GridField.getGrid()).get(x, y);
-//			System.out.println(rasterColor);
-			if (rasterColor < 0)
-			{
-				waterDrops++;
-			}
-			if (hc.random.nextBoolean(Parameters.HYDROCHORY_PROB) || rasterColor < 0)
 
-/////////////////////////////////////////////
-
+			if (hc.random.nextBoolean(Parameters.HYDROCHORY_PROB) || rasterColor == hc.RIVER_RASTER_COLOR)
 			{
 				int n = hc.random.nextInt(hc.seedFloatTimes.length);
 				maxFloatTime = hc.seedFloatTimes[n];
@@ -145,14 +114,15 @@ public class MobileSeed implements Steppable
 					// drop the seed into the closestRiverString segment, at the closestRiverPoint point.
 					pointMoveTo.setCoordinate(entryPoint.getCoordinate());
 					location.getGeometry().apply(pointMoveTo);
-					setupHydrochory(closestRiverString, entryPoint);
+					setupHydrochory(closestRiverString, (Point) location.getGeometry());
 
 					hc.schedule.scheduleOnce(hc.schedule.getTime() + hc.random.nextDouble() * TIDAL_PERIOD * 2, this);
 				}	
 				else
 				{	
 					// aggregate implantation check
-					double b = 1-Math.pow((1-Parameters.implantationRate), (double) maxFloatTime);
+					double b = 1-Math.pow( (1-Parameters.implantationRate), (double) maxFloatTime );
+					assert (b < 1 && b >= 0) : "Aggregate implantation check probability is nonsensical.";
 					if (hc.random.nextBoolean(b))
 					{
 						implant();
@@ -178,61 +148,46 @@ public class MobileSeed implements Steppable
 	{
 		if (hc.random.nextBoolean(Parameters.implantationRate))
 		{
-			DistanceOp riverToBoundary = new DistanceOp( hc.tidal_Boundary, location.getGeometry() );
-	
-			// Coordinate[] riverToBoundaryCoords = riverToBoundary.nearestPoints();
-			// Coordinate boundaryCoord = riverToBoundaryCoords[0];
-			// Coordinate riverCoord = riverToBoundaryCoords[1];
+			DistanceOp riverToWaterbody = new DistanceOp( hc.tidal_Geometries, location.getGeometry() );
+			Coordinate[] riverToWaterbodyCoords = riverToWaterbody.nearestPoints();
+			Coordinate waterbodyCoord = (Coordinate) riverToWaterbodyCoords[0].clone();
+			Coordinate riverCoord = (Coordinate) riverToWaterbodyCoords[1].clone();
 
-			// double slope = (riverCoord.y - boundaryCoord.y) / (riverCoord.x - boundaryCoord.x); // slope
-			// double angle = Math.atan(slope); // inverse-tangent for the angle
-			
-			// double dist = 0; // sample the empirical distribution of distances to stream edge for this seed's distance
-			// double xOffset = dist * Math.cos(angle);
-			// double yOffset = dist * Math.sin(angle);
+			/* Continue the line from the seed's current location on the river to the nearest marsh border.
+				Project this line into the marsh and drop the seed within 4m of the marsh edge. */
+			double slope = (waterbodyCoord.y - riverCoord.y) / (waterbodyCoord.x - riverCoord.x);
+			double angle;
+			if (Double.isNaN(slope)) {
+				assert (hc.tidal_Geometries.intersects(location.getGeometry())) : "Implantation angle should exist, but does not.";
+				angle = hc.random.nextDouble() * 2 * Math.PI;
+			} else {
+				angle = Math.atan(slope);
+			}
 
-			// Coordinate implantationCoord = new Coordinate(boundaryCoord.x + xOffset, boundaryCoord.y + yOffset); 
+			double dist = hc.random.nextDouble() * Parameters.IMPLANTATION_MAXIMUM_DISTANCE; // uniform dist from 0 - 4m
+			double xOffset = dist * Math.cos(angle);
+			double yOffset = dist * Math.sin(angle);
+			Coordinate implantationCoord;
+			if (riverCoord.x <= waterbodyCoord.x) {
+				implantationCoord = new Coordinate(waterbodyCoord.x + xOffset, waterbodyCoord.y + yOffset);
+			} else {
+				implantationCoord = new Coordinate(waterbodyCoord.x - xOffset, waterbodyCoord.y - yOffset); 
+			}
 
-			// assert( Math.sqrt( 
-			// 	(Math.pow(implantationCoord.x - boundaryCoord.x, 2)) + 
-			// 	(Math.pow(implantationCoord.y - boundaryCoord.y, 2))) == dist);
-
-			Coordinate implantationCoord = riverToBoundary.nearestPoints()[0];
 			pointMoveTo.setCoordinate(implantationCoord);
 			location.getGeometry().apply(pointMoveTo);
-
-// I THINK THEY MIGHT BE INSIDE BOTH, BECAUSE THERE ARE PLACES WHERE THE LINES AND THE POLYGONS INTERSECT!
-
-// ARE WE FALLING INTO THE WATER / GETTING TOSSED OUT?			
-if (hc.tidal_Geometries.disjoint(location.getGeometry()))
-{
-	vectorFailedImplants++;
-}
-// implants++;
-
-int x = hc.colorRaster_GridField.toXCoord((Point) location.getGeometry());
-int y = hc.colorRaster_GridField.toYCoord((Point) location.getGeometry());
-int rasterColor = ((IntGrid2D) hc.colorRaster_GridField.getGrid()).get(x, y);
-if (rasterColor < 0)
-{
-	rasterFailedImplants++;
-}	
-
-implants++;
-
 			implant();
 		}
-		else if (floatTimer <= maxFloatTime && deadEnd == false) // keep on hydrochorying
+		else if (floatTimer <= maxFloatTime) // keep on hydrochorying
 		{
-
-			distanceThisHour = tidalRateFunction( hc.schedule.getTime() );
+			double distanceThisHour = tidalRateFunction( hc.schedule.getTime() );
 			double distanceTraveled = 0;
-			double numForRounding = 1000000.0;
-			double distanceToTravel = (Math.round(Math.abs(distanceThisHour)*numForRounding)/numForRounding)-1;
+			final double SCALE = 10000000.0;
+			double distanceToTravel = (Math.round(Math.abs(distanceThisHour)*SCALE)/SCALE)-1; // why -1? refresh this
 
-			while (distanceTraveled < distanceToTravel && deadEnd == false)
+			while (distanceTraveled < distanceToTravel && deadEnd == false) // do we want dead ends to work like this?
 			{
-				if (!arrivedAtJunction())
+				if (!arrivedAtJunction(distanceThisHour))
 				{
 					double myStartIndex = currentIndex;
 
@@ -264,6 +219,8 @@ implants++;
 				pointMoveTo.setCoordinate(currentPos);
 				location.getGeometry().apply(pointMoveTo);
 			}
+
+			deadEnd = false;
 			floatTimer++;
 			hc.schedule.scheduleOnce(hc.schedule.getTime() + 1, this);
 		}
@@ -275,10 +232,10 @@ implants++;
 	 */
 	private void implant()
 	{
-		x = hc.colorRaster_GridField.toXCoord((Point) location.getGeometry());
-		y = hc.colorRaster_GridField.toYCoord((Point) location.getGeometry());
-
+		int x = hc.colorRaster_GridField.toXCoord((Point) location.getGeometry());
+		int y = hc.colorRaster_GridField.toYCoord((Point) location.getGeometry());
 		myPlot = e.getPlot(x, y);
+
 		if (hc.random.nextBoolean(Parameters.WINTER_SURVIVAL_RATE))
 		{
 			double prob = hc.random.nextDouble();
@@ -288,10 +245,14 @@ implants++;
 			{
 				Plant p = new Plant(location, false);
 			}
-			else if (prob < germProb + Parameters.seedBankRate)
-			{
-				BankedSeed bs = new BankedSeed(location);
-			}
+			/* ------------------------
+			 * No seed bank for now
+			 * ------------------------ */
+			// else if (prob < germProb + Parameters.seedBankRate)
+			// {
+			// 	BankedSeed bs = new BankedSeed(location);
+			// }
+
 			// some seeds are dying implicitly here.
 		}
 	}
@@ -300,10 +261,10 @@ implants++;
 	 * @return true if at junction, false if not.
 	 * @author Michael Crawford
 	 */
-	private boolean arrivedAtJunction()
+	private boolean arrivedAtJunction(double dist)
 	{
-		if ( (distanceThisHour > 0 && currentIndex == endIndex)
-			|| (distanceThisHour < 0 && currentIndex == startIndex) )
+		if ( (dist > 0 && currentIndex == endIndex)
+			|| (dist < 0 && currentIndex == startIndex) )
 		{
 			return true;
 		}
@@ -334,27 +295,22 @@ implants++;
 				Point startPoint = newRoute.getStartPoint();
 				Point endPoint = newRoute.getEndPoint();
 
-				if (startPoint.equals(location.geometry))
+				if (startPoint.equals(location.getGeometry()))
 				{
 					setupHydrochory(newRoute, startPoint);
 				}
-				else if (endPoint.equals(location.geometry))
+				else if (endPoint.equals(location.getGeometry()))
 				{
 					setupHydrochory(newRoute, endPoint);
 				}
-				// else if ()
-				// {
-				// 	TODO: This does not account for seeds entering in THE MIDDLE of lineStrings. (A T intersection)
-				// }
-				else System.out.println("Error 1 in MobileSeed:findNewPath.");
+				else throw new AssertionError();
 			}
-			else if (edges.length <= 1)
+			else
 			{
 				deadEnd = true;
 			}
-			else System.out.println("Error 2 in MobileSeed:findNewPath.");
 		}
-		else System.out.println("Error 3 in MobileSeed:findNewPath.");
+		else throw new AssertionError();
 	}
 
 	/**

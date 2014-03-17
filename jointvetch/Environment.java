@@ -11,6 +11,7 @@ import sim.field.geo.GeomGridField;
 import sim.field.grid.IntGrid2D;
 import sim.field.grid.ObjectGrid2D;
 import com.vividsolutions.jts.geom.*;
+import org.apache.commons.math3.stat.StatUtils;
 import java.util.*;
 import java.io.*;
 
@@ -21,16 +22,16 @@ import java.io.*;
  * SimState.)
  * @author Stephen
  */
-public class Environment implements Steppable
+class Environment implements Steppable
 {
-	private static Environment theInstance;
+	private static Environment instance;
 	private HoltsCreek hc;
 
 	/* general parameters */
-	private int yearCount = 0;
+	private int year = 0;
 
 	/* timekeeping */
-	public enum Month { JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC };
+	enum Month { JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC };
 	private static final int DAYS[] = { 31,28,31,30,31,30,31,31,30,31,30,31 };
 	private static final int CUM_DAYS[] = { 31,59,90,120,151,181,212,243,273,304,334,365 };
 	private static final int HOURS_PER_DAY = 24;
@@ -42,33 +43,32 @@ public class Environment implements Steppable
 
 	/* environmental stochasticity */
 	private double thisYearsStochasticity;
-	public static ArrayList<Double> environmentalHistory;
 
 	/* records */
-	private static ArrayList<Integer> populationHistory;
-	private static boolean PRINT_POPULATION_HISTORY = true;
-	private static boolean RUN_CLUSTERING_ANALYSIS = true;
+	private List<Integer> populationHistory;
+	private List<Double> environmentalHistory;
 
-	public static synchronized Environment instance()
+	private static final boolean VERBOSE = false;
+	private static final String coordPath = "/Users/Theodore/Documents/Google_Drive/SJV_EcologicalModelling_Paper/Analysis/Seed_Embankment_Algorithm/";
+
+	static synchronized Environment instance()
 	{
-		if (theInstance == null)
+		if (instance == null)
 		{
-			theInstance = new Environment();
+			instance = new Environment();
 		}
-		return theInstance;
+		return instance;
 	}
 
 	private Environment()
 	{
 		hc = HoltsCreek.instance();
 	
-		thisYearsStochasticity = generateEnvironStochasticity();
-
+		populationHistory = new ArrayList<Integer>();	
 		environmentalHistory = new ArrayList<Double>();
+		
+		thisYearsStochasticity = generateEnvironStochasticity();
 		environmentalHistory.add(thisYearsStochasticity);
-
-		populationHistory = new ArrayList<Integer>();
-		populationHistory.add(hc.reproducingPlants_vectorField.getGeometries().size());
 	}
 
 	/* ------------------------
@@ -76,60 +76,28 @@ public class Environment implements Steppable
 	 * ------------------------ */
 	public void step(SimState state)
 	{
-		hc = HoltsCreek.instance();
 		today = getDateForTime(hc.schedule.getTime());
-		notifyEndOfYear();
-		populationHistory.add(hc.reproducingPlants_vectorField.getGeometries().size());
-		yearCount++;
+
 		if (today.equals(newYearDate))
 		{
-			// HoltsCreekWithUI.takeSnapshot();
-			thisYearsStochasticity = generateEnvironStochasticity();
+			year++;
+			notifyEndOfYearForPlots();
+			
 			int n = hc.reproducingPlants_vectorField.getGeometries().size();
-			if (n == 0 || n > Parameters.MAX_POPULATION_COUNT || yearCount >= Parameters.MAX_YEAR_COUNT)
+			populationHistory.add(n);
+			if (n == 0 || n > Parameters.MAX_POPULATION_COUNT || year >= Parameters.MAX_YEAR_COUNT)
 			{
-				printFinalStatistics();
-
-				System.out.print("Failed implants (vector method): " + MobileSeed.vectorFailedImplants + " out of: " + MobileSeed.implants);
-				System.out.println("; ratio (vector): " + MobileSeed.vectorFailedImplants/(double) MobileSeed.implants);
-				System.out.print("Failed implants (raster method): " + MobileSeed.rasterFailedImplants + "; out of: " + MobileSeed.implants);
-				System.out.println("; ratio (raster): " + MobileSeed.rasterFailedImplants/(double) MobileSeed.implants);
-				System.out.println("Water drops: " + MobileSeed.waterDrops);
-
-
-
-
-	    		try {
-          			File file = new File("/Users/Theodore/Documents/Google_Drive/SJV_EcologicalModelling_Paper/Analysis/Seed_Embankment_Algorithm/","PLANT_COORDS.txt");
-          			BufferedWriter output = new BufferedWriter(new FileWriter(file));
-          			for (int i = 0; i < hc.reproducingPlants_vectorField.getGeometries().size(); i++)
-					{
-						MasonGeometry mg = (MasonGeometry) hc.reproducingPlants_vectorField.getGeometries().get(i);
-						output.write(mg.getGeometry().getCoordinate().x + ", " + mg.getGeometry().getCoordinate().y + "\n");
-					}
-          			output.close();
-        		} catch ( IOException e ) {
-           			e.printStackTrace();
-        		}
-
-
-
-
-
-				if (PRINT_POPULATION_HISTORY) System.out.println("Population History: " + populationHistory);
-				if (RUN_CLUSTERING_ANALYSIS) runClusteringAnalysis();
+				printStatistics();
 				System.exit(0);
 			}
+				
+			thisYearsStochasticity = generateEnvironStochasticity();
 			environmentalHistory.add(thisYearsStochasticity);
-			hc.plants_vectorField.clear();
+			
 			hc.reproducingPlants_vectorField.clear();
 			hc.schedule.scheduleOnce(getClockTimeForNextNewYearDate(), this);
 		}
-		else
-		{
-			System.out.println("ERROR in Environment. Clock time: " + hc.schedule.getTime());
-			System.exit(1);
-		}
+		else throw new AssertionError();
 	}
 
 /* ------------------------------
@@ -137,15 +105,16 @@ public class Environment implements Steppable
  * ------------------------------ */
 	private double generateEnvironStochasticity()
 	{
+		if (year < Parameters.ENVIRONMENTAL_GRACE_PERIOD) return 2.0;
+
 		double u = hc.random.nextDouble();
 		double stochMax = Parameters.stochMax;
 		double stochMin = 1/stochMax;
-		double adjustmentFactor = Parameters.adjustmentFactor;
 
-		return (Math.exp((u*Math.log(stochMax)) + ((1-u)*Math.log(stochMin)))) * adjustmentFactor;
+		return Math.exp((u*Math.log(stochMax)) + ((1-u)*Math.log(stochMin)));
 	}
 
-	public double getEnvironmentalStochasticity()
+	double getEnvironmentalStochasticity()
 	{
 		return thisYearsStochasticity;
 	}
@@ -153,10 +122,9 @@ public class Environment implements Steppable
 /* ------------------------------
  * Dealing with plots
  * ------------------------------ */
-	public Plot getPlot(int x, int y)
+	Plot getPlot(int x, int y)
 	{
-		hc = HoltsCreek.instance();
-		Plot plot = (Plot) ((ObjectGrid2D) hc.plotGrid_GridField.getGrid()).get(x, y);
+		Plot plot = (Plot) ( (ObjectGrid2D) hc.plotGrid_GridField.getGrid() ).get(x, y);
 		if (plot == null)
 		{
 			plot = new Plot(x, y);
@@ -165,50 +133,49 @@ public class Environment implements Steppable
 		return plot;
 	}
 
-	private void notifyEndOfYear()
+	private void notifyEndOfYearForPlots()
 	{
-		Bag plots = (Bag) ((ObjectGrid2D) hc.plotGrid_GridField.getGrid()).elements();
-		for(int i=0; i<plots.size(); i++)
-		{
+		Bag plots = (Bag) ( (ObjectGrid2D) hc.plotGrid_GridField.getGrid() ).elements();
+		for(int i = 0, s = plots.size(); i < s; i++)
+		{ 
 			Plot p = (Plot) plots.get(i);
-			p.registerYearEnd();
+			p.registerYearEnd(year);
 		}
 	}
 
-	public int getYear() {
-		return yearCount;
+	int getYear() {
+		return year;
 	}
 
-	/* ------------------------
-	 * Printing information
-	 * ------------------------ */
-	public void printLowestValueOfThrivingPopulations()
+/* ------------------------
+ * Printing information
+ * ------------------------ */
+	private void printLowestValueOfThrivingPopulationsCounts()
 	{
 		Bag plots = (Bag) ((ObjectGrid2D) hc.plotGrid_GridField.getGrid()).elements();
-		ArrayList<Integer> printList = new ArrayList<Integer>();
-		for(int i=0; i<plots.size(); i++)
+		List<Integer> printList = new ArrayList<Integer>();
+		for (int i = 0, s = plots.size(); i < s; i++)
 		{
 			Plot p = (Plot) plots.get(i);
-			ArrayList<Integer> hc = p.getHistoryCounts();
+			List<Integer> hc = p.getHistoryCounts();
 
 			// System.out.println(hc.toString());
 			// System.out.println(p.getColor());
 
-			int absurdNumber = 100000000;
-			int lowestAfterFifty = absurdNumber;
+			int lowestAfterFifty = Integer.MAX_VALUE;
 			boolean afterAtLeastOneFifty = false;
-			for(int j=0; j<hc.size(); j++)
+			for (int j = 0, t = hc.size(); j < t; j++)
 			{
-				if(hc.get(j)>=50 && afterAtLeastOneFifty==false)
+				if (afterAtLeastOneFifty == false && hc.get(j) >= 50)
 				{
-					afterAtLeastOneFifty=true; // you've found at least one 50
+					afterAtLeastOneFifty = true; // you've found at least one 50
 				}
-				else if(hc.get(j)<lowestAfterFifty && afterAtLeastOneFifty==true)
+				else if (afterAtLeastOneFifty == true && hc.get(j) < lowestAfterFifty)
 				{
-					lowestAfterFifty=hc.get(j);
+					lowestAfterFifty = hc.get(j);
 				}
 			}
-			if (lowestAfterFifty != absurdNumber)
+			if (lowestAfterFifty != Integer.MAX_VALUE)
 			{
 				printList.add(lowestAfterFifty);
 			}
@@ -216,114 +183,142 @@ public class Environment implements Steppable
 		System.out.println(printList.toString());
 	}
 
-	public void printFinalStatistics()
+	private void printStatistics()
 	{
+		double[] popHistArr = new double[ populationHistory.size() ];
+		for (int i = 0, s = populationHistory.size(); i < s; i++)
+			popHistArr[i] = (double) populationHistory.get(i);
+
 		int u=0, t=0, m=0, tr=0, d=0;
 
-		Bag plots = (Bag) ((ObjectGrid2D) hc.plotGrid_GridField.getGrid()).elements();
-		for(int i=0; i<plots.size(); i++)
+		Bag plots = (Bag) ( (ObjectGrid2D) hc.plotGrid_GridField.getGrid() ).elements();
+		for(int i = 0, s = plots.size(); i < s; i++)
 		{
 			Plot p = (Plot) plots.get(i);
 			Plot.PlotType pt = p.getPlotType();
-			if (pt.equals(Plot.PlotType.UNKNOWN))
-			{
-				u++;
-			}
-			else if (pt.equals(Plot.PlotType.THRIVING))
-			{
-				t++;
-			}
-			else if (pt.equals(Plot.PlotType.MEDIOCRE))
-			{
-				m++;
-			}
-			else if (pt.equals(Plot.PlotType.TRANSIENT))
-			{
-				tr++;
-			}
-			else if (pt.equals(Plot.PlotType.DEAD))
-			{
-				d++;
-			}
+			if (pt.equals(Plot.PlotType.UNKNOWN)) u++;
+			else if (pt.equals(Plot.PlotType.THRIVING)) t++;
+			else if (pt.equals(Plot.PlotType.MEDIOCRE)) m++;
+			else if (pt.equals(Plot.PlotType.TRANSIENT)) tr++;
+			else if (pt.equals(Plot.PlotType.DEAD)) d++;
+			else throw new AssertionError();
 		}
+
+		if (VERBOSE)
+		{
+			System.out.println("Population History: " + populationHistory);
+			System.out.println("Environmental History: " + environmentalHistory);
+			printCoords();
+		}
+
+		Bag clusters = runClusteringAnalysis();
+		int numClusters = clusters.size();
+		double[] clusterArr = new double[ numClusters ];
+		for (int i = 0, s = numClusters; i < s; i++)
+			clusterArr[i] = (double) clusters.get(i);
 
 		System.out.println(
 			Parameters.stochMax + " " +
-			Parameters.adjustmentFactor + " " +
 			Parameters.hydrochoryBool + " " +
 			Parameters.implantationRate + " " +
 			Parameters.seedBankRate + " " +
-			(yearCount + 1) + " " +
-			plots.size() + " " +
-			u + " " + // unknown
+			Parameters.ADJUSTMENT_FACTOR + " " +
+			year + " " +
 			d + " " + // dead
-			t + " " + // thriving
-			m + " " + // mediocre
 			tr + " " + // transient
-			hc.reproducingPlants_vectorField.getGeometries().size());
+			m + " " + // mediocre
+			t + " " + // thriving
+			numClusters + " " + 
+			(int) StatUtils.mean(clusterArr) + " " +
+			hc.reproducingPlants_vectorField.getGeometries().size() + " " +
+			(int) StatUtils.max(popHistArr) + " " + 
+			(int) StatUtils.min(popHistArr) + " " +
+			(int) StatUtils.mean(popHistArr) + " " + 
+			(int) Math.sqrt(StatUtils.populationVariance(popHistArr)));
 	}
 
-	public void runClusteringAnalysis()
+	private Bag runClusteringAnalysis()
 	{
 		DBSCAN dbscan = new DBSCAN();
 		Bag clusters = dbscan.getPopulations(
 			hc.reproducingPlants_vectorField.getGeometries(), Parameters.EPSILON, Parameters.MIN_POINTS);
 
-		if (clusters.size() > 0)
+		if (VERBOSE)
 		{
-			System.out.println("Number of clusters: " + clusters.size());
-			System.out.print("clusterPops: [");
-		}
-		else
-		{
-			System.out.println("Number of clusters: 0");
-			System.out.println("clusterPops: [0]");
-		}
-
-		for (int i=0;i<clusters.size();i++)
-		{
-			Bag cluster = (Bag) clusters.get(i);
-			if (i < clusters.size()-1)
+			if (clusters.size() > 0)
 			{
-				System.out.print(cluster.size() + ", ");
+				System.out.println("Number of clusters: " + clusters.size());
+				System.out.print("clusterPops: [");
 			}
 			else
 			{
-				System.out.println(cluster.size() + "]");
+				System.out.println("Number of clusters: 0");
+				System.out.println("clusterPops: [0]");
 			}
+
+			for (int i = 0, s = clusters.size(); i < s; i++)
+			{
+				Bag cluster = (Bag) clusters.get(i);
+				if (i < clusters.size()-1)
+				{
+					System.out.print(cluster.size() + ", ");
+				}
+				else
+				{
+					System.out.println(cluster.size() + "]");
+				}
+			}		
 		}
+
+		return clusters;
+	}
+
+	private void printCoords()
+	{		
+		try {
+  			File file = new File(coordPath,"PLANT_COORDS.txt");
+  			BufferedWriter output = new BufferedWriter(new FileWriter(file));
+  			for (int i = 0, s = hc.reproducingPlants_vectorField.getGeometries().size(); i < s; i++)
+			{
+				MasonGeometry mg = (MasonGeometry) hc.reproducingPlants_vectorField.getGeometries().get(i);
+				output.write(mg.getGeometry().getCoordinate().x + ", " + mg.getGeometry().getCoordinate().y + "\n");
+			}
+  			output.close();
+		} catch ( IOException e ) {
+   			e.printStackTrace();
+		}	
 	}
 
 /* ------------------------
  * Keeping track of the date.
  * ------------------------ */
-	public static double getClockTimeForNextNewYearDate(){
-		return getClockTimeForNext(Month.DEC, 31);
-	}
-
-	public static class Date
+	static class Date
 	{
-		public Month month;
-		public int dayWithinMonth;
+		Month month;
+		int dayWithinMonth;
 
-		public Date(Month month, int dayWithinMonth)
+		Date(Month month, int dayWithinMonth)
 		{
 			this.month = month;
 			this.dayWithinMonth = dayWithinMonth;
 		}
-		public boolean equals(Date d)
+		
+		boolean equals(Date d)
 		{
-			if (d.month == month && d.dayWithinMonth == dayWithinMonth)
-			{
+			if (d.month == month && d.dayWithinMonth == dayWithinMonth) {
 				return true;
 			}
 			return false;
 		}
 	}
-
-	public void printDateIfNew()
+	
+	double getClockTimeForNextNewYearDate() {
+		return getClockTimeForNext(Month.DEC, 31);
+	}
+	
+	void printDateIfNew()
 	{
-		double time = HoltsCreek.instance().schedule.getTime();
+		double time = hc.schedule.getTime();
 		Date date = getDateForTime(time);
 		if (!date.equals(lastDate))
 		{
@@ -334,25 +329,26 @@ public class Environment implements Steppable
 		}
 	}
 
-	private static Date getDateForTime(double time) {
-		double numDays = (time % (HOURS_PER_DAY * DAYS_PER_YEAR)) / HOURS_PER_DAY;
+	private static Date getDateForTime(double time) 
+	{
+		double numDays = (time % (HOURS_PER_DAY * DAYS_PER_YEAR) ) / HOURS_PER_DAY;
 		Month month = Month.JAN;
 		int date = 0;
-		for (int i=0; i<CUM_DAYS.length; i++)
+		for (int i = 0; i < CUM_DAYS.length; i++)
 		{
 			if (numDays < CUM_DAYS[i])
 			{
 				month = Month.values()[i];
 				int cumDays = 0;
-				if (i>0)
+				if (i > 0)
 				{
 					cumDays = CUM_DAYS[i-1];
 				}
-				date = (int) numDays - cumDays + 1;
+				date = (int) numDays - cumDays+1;
 				break;
 			}
 		}
-		return new Date(month,date);
+		return new Date(month, date);
 	}
 
 	private static double computeHoursPastNewYears(double clock) {
@@ -364,7 +360,7 @@ public class Environment implements Steppable
 	 * object passed as an argument. (See documentation under
 	 * {@link getClockTimeForNext(Month, int)}.)
 	 */
-	public static double getClockTimeForNext(Date date) {
+	double getClockTimeForNext(Date date) {
 		return getClockTimeForNext(date.month, date.dayWithinMonth);
 	}
 
@@ -380,15 +376,15 @@ public class Environment implements Steppable
 	 * @param dayWithinMonth An integer giving the day of the month. No
 	 * bounds-related error checking is provided.
 	 */
-	public static double getClockTimeForNext(Month month, int dayWithinMonth)
+	double getClockTimeForNext(Month month, int dayWithinMonth)
 	{
-		double currentTime = HoltsCreek.instance().schedule.getTime();
+		double currentTime = hc.schedule.getTime();
 		if (currentTime < 0)
 		{
 			currentTime = 0;
 		}
 		double currHoursPastNewYears = computeHoursPastNewYears(currentTime);
-		double currYear = Math.floor(currentTime / (365 * HOURS_PER_DAY));
+		double currYear = Math.floor(currentTime / (365 * HOURS_PER_DAY) );
 		double desiredHoursPastNewYears = HOURS_PER_DAY *
 			(CUM_DAYS[month.ordinal()] - DAYS[month.ordinal()]) +
 			HOURS_PER_DAY * (dayWithinMonth-1);

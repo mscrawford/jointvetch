@@ -7,7 +7,7 @@ import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.operation.distance.DistanceOp;
 import com.vividsolutions.jts.operation.distance.GeometryLocation;
 
-public class DBSCAN
+class DBSCAN
 {
 	private Bag geometries = new Bag(); // actual MasonGeometries
 	private Bag database = new Bag(); // 'DBSCAN objects'
@@ -17,12 +17,12 @@ public class DBSCAN
 
 	private class DBObj
 	{
-		public MasonGeometry geomPoint; 
-		public boolean visited; 
-		public boolean noise;
-		public boolean clustered;
+		MasonGeometry geomPoint; 
+		boolean visited; 
+		boolean noise;
+		boolean clustered;
 
-		public DBObj(MasonGeometry p) 
+		DBObj(MasonGeometry p) 
 		{
 			this.geomPoint = p;
 			this.visited = false;
@@ -31,18 +31,18 @@ public class DBSCAN
 		}
 	}
 
-	public Bag getPopulations(Bag masonGeometries, double epsilon, int minPts)
+	Bag getPopulations(Bag masonGeometries, double epsilon, int minPts)
 	{
 		clusters = new Bag();
 		this.geometries.addAll(masonGeometries);
-		for (int j=0; j<geometries.size(); j++) 
+		for (int j = 0, s = geometries.size(); j < s; j++) 
 		{
 			this.database.add(new DBObj((MasonGeometry) geometries.get(j)));
 		}
 		this.epsilon = epsilon;
 		this.minPts = minPts;
 
-		for (int i=0; i<database.size(); i++)
+		for (int i = 0, s = database.size(); i < s; i++)
 		{
 			DBObj current = (DBObj) database.get(i);
 			if (current.visited == false)
@@ -61,7 +61,7 @@ public class DBSCAN
 			}
 		}
 
-		for (int i=0; i<database.size(); i++)
+		for (int i = 0, s = database.size(); i < s; i++)
 		{
 			DBObj cur = (DBObj) database.get(i);
 			if (cur.noise == true)
@@ -78,7 +78,7 @@ public class DBSCAN
 	{
 		cluster.add(current.geomPoint);
 		current.clustered = true;
-		for (int k=0; k<neighborPts.size(); k++) // for each point P' in NeighborPts
+		for (int k = 0, s = neighborPts.size(); k < s; k++) // for each point P' in NeighborPts
 		{
 			DBObj kth = (DBObj) neighborPts.get(k);
 			if(kth.visited == false) // if P' is not visited
@@ -103,7 +103,7 @@ public class DBSCAN
 	private Bag regionQuery(DBObj p)
 	{ 
 		Bag neighborPts = new Bag();
-		for (int i=0; i<database.size(); i++)
+		for (int i = 0, s = database.size(); i < s; i++)
 		{
 			DBObj other = (DBObj) database.get(i);
 			if (DistanceOp.distance(other.geomPoint.getGeometry(), p.geomPoint.getGeometry()) <= epsilon)

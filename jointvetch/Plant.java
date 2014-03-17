@@ -22,16 +22,16 @@ import sim.field.geo.GeomGridField.GridDataType;
  * <i>not</i> represented by this class.)
  * @author Michael Crawford
  */
-public class Plant implements Steppable
+class Plant implements Steppable
 {
 	private HoltsCreek hc;
 	private Environment e;
 
 	private MasonGeometry location;
-	private int x, y, rasterColor;
+	private int x, y;
 	private Plot myPlot;
 
-	public enum LifeStage { DEAD, GERMINATED, ADULT };
+	enum LifeStage { DEAD, GERMINATED, ADULT };
 	private LifeStage stage;
 
 	private static final double MAX_DISTANCE_TO_STREAM_EDGE = 4.0; /* meters */
@@ -63,7 +63,7 @@ public class Plant implements Steppable
 	 * step's adults, new adults are created by seeds, according to the
 	 * vital rates.
 	 */
-	public Plant(MasonGeometry seed_location, boolean isFirstGen)
+	Plant(MasonGeometry seed_location, boolean isFirstGen)
 	{
 		hc = HoltsCreek.instance();
 		e = Environment.instance();
@@ -77,7 +77,6 @@ public class Plant implements Steppable
 		{
 			stage = LifeStage.ADULT;
 			myPlot.registerNewPlant();
-			hc.plants_vectorField.addGeometry(location);
 
 			hc.schedule.scheduleOnce(e.getClockTimeForNext(adultReproductionDate), this);
 		}
@@ -98,8 +97,6 @@ public class Plant implements Steppable
 			{
 				stage = LifeStage.ADULT;
 				myPlot.registerNewPlant();
-				hc.plants_vectorField.addGeometry(location);
-
 				hc.schedule.scheduleOnce(e.getClockTimeForNext(adultReproductionDate), this);
 			}
 			else
@@ -120,14 +117,10 @@ public class Plant implements Steppable
 				stage = LifeStage.DEAD;
 			}
 		}
-		else
-		{
-			System.out.println("Error in Plant:grow");
-			System.exit(1);
-		}
+		else throw new AssertionError();
 	}
 
-	/*
+	/**
 	 * The seeds created in this function are going to float around for, probably, at most 5 days. By then
 	 * they'll all either be dead or germinated plants, having entered the constructor and then rescheduled themselves.
 	 */
@@ -150,14 +143,11 @@ public class Plant implements Steppable
 			}
 		}
 		
-		for (int i = 0; i < myPlot.getFecundity(); i++)
+		for (int i = 0, s = myPlot.getFecundity(); i < s; i++)
 		{
 			double seedAngle = hc.random.nextDouble() * 2 * Math.PI;
 			double seedDist = gammaDistro.nextDouble();
-			while (seedDist > 1.5) 
-			{
-				seedDist = gammaDistro.nextDouble();
-			}
+			while (seedDist > 1.5) seedDist = gammaDistro.nextDouble();
 			double xOffset = seedDist * Math.cos(seedAngle);
 			double yOffset = seedDist * Math.sin(seedAngle);
 			Coordinate seedLoc = (Coordinate) location.getGeometry().getCoordinate().clone();

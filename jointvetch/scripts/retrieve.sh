@@ -1,9 +1,9 @@
 #!/bin/bash
 
-LOCALBASEDIR=/Users/michaelcrawford/Documents
+LOCALBASEDIR=/Users/Theodore/Documents
 REMOTEBASEDIR=/home/mcrawford
 REMOTERESULTS=/home/mcrawford/results
-RESULTSSAVEDIR=/Users/michaelcrawford/Desktop/results
+RESULTSSAVEDIR=/Users/Theodore/Documents/Google_Drive/SJV_EcologicalModelling_Paper/Analysis/Adjustment_Factor_Optimization
 SSH="ssh -p 21212 mcrawford@199.111.89.20"
 
 #while true

@@ -31,7 +31,7 @@ class Plant implements Steppable
 	private int x, y;
 	private Plot myPlot;
 
-	enum LifeStage { DEAD, GERMINATED, ADULT };
+	enum LifeStage { DEAD, IMPLANTED, ADULT };
 	private LifeStage stage;
 
 	private static final double MAX_DISTANCE_TO_STREAM_EDGE = 4.0; /* meters */
@@ -45,7 +45,7 @@ class Plant implements Steppable
 	private static final Environment.Date seedlingSurvivalDate =
 		new Environment.Date(Environment.Month.SEP, 28);
 
-	private static final Environment.Date adultReproductionDate =
+	private static final Environment.Date reproductionDate =
 		new Environment.Date(Environment.Month.OCT, 1);
 
 	static
@@ -69,20 +69,20 @@ class Plant implements Steppable
 		e = Environment.instance();
 
 		location = seed_location;
-		x = hc.colorRaster_GridField.toXCoord((Point) location.getGeometry());
-		y = hc.colorRaster_GridField.toYCoord((Point) location.getGeometry());
-
+		x = hc.redRaster_gf.toXCoord((Point) location.getGeometry());
+		y = hc.redRaster_gf.toYCoord((Point) location.getGeometry());
+		
 		myPlot = e.getPlot(x, y);
 		if (isFirstGen)
 		{
-			stage = LifeStage.ADULT;
 			myPlot.registerNewPlant();
 
-			hc.schedule.scheduleOnce(e.getClockTimeForNext(adultReproductionDate), this);
+			stage = LifeStage.ADULT;
+			hc.schedule.scheduleOnce(e.getClockTimeForNext(reproductionDate), this);
 		}
 		else
 		{
-			stage = LifeStage.GERMINATED;
+			stage = LifeStage.IMPLANTED;
 			hc.schedule.scheduleOnce(e.getClockTimeForNext(seedlingSurvivalDate), this);
 		}
 	}
@@ -91,13 +91,13 @@ class Plant implements Steppable
 	{
 		hc = HoltsCreek.instance();
 
-		if (stage == LifeStage.GERMINATED)
+		if (stage == LifeStage.IMPLANTED)
 		{
 			if (hc.random.nextBoolean(myPlot.getSurvivalProb()))
 			{
 				stage = LifeStage.ADULT;
 				myPlot.registerNewPlant();
-				hc.schedule.scheduleOnce(e.getClockTimeForNext(adultReproductionDate), this);
+				hc.schedule.scheduleOnce(e.getClockTimeForNext(reproductionDate), this);
 			}
 			else
 			{
@@ -109,7 +109,7 @@ class Plant implements Steppable
 			if (hc.random.nextBoolean(myPlot.getCarryingCapacityAdjustment()))
 			{
 				reproduce();
-				hc.reproducingPlants_vectorField.addGeometry(location); // will be cleared on Dec 31.
+				hc.reproducingPlants_vf.addGeometry(location); // will be cleared on Dec 31.
 			}
 			else
 			{
@@ -127,17 +127,18 @@ class Plant implements Steppable
 	private void reproduce()
 	{
 		GeometryLocation entryLocation = null;
-		DistanceOp toRiver = new DistanceOp(hc.river_Geometries, location.getGeometry());
+		DistanceOp toRiver = new DistanceOp(hc.river_mls, location.getGeometry());
+
 		if (toRiver.distance() < MAX_DISTANCE_TO_STREAM_EDGE)
 		{
 			entryLocation = toRiver.nearestLocations()[0];
  		}
 		else
 		{
-			DistanceOp toEdge = new DistanceOp( hc.tidal_Boundary, location.getGeometry() );
+			DistanceOp toEdge = new DistanceOp( hc.tidalBoundary_g, location.getGeometry() );
 			if (toEdge.distance() < MAX_DISTANCE_TO_STREAM_EDGE)
 			{
-				DistanceOp edgeToRiver = new DistanceOp( hc.river_Geometries,
+				DistanceOp edgeToRiver = new DistanceOp( hc.river_mls,
 					hc.factory.createPoint( toEdge.nearestPoints()[0] ));
 				entryLocation = edgeToRiver.nearestLocations()[0];
 			}

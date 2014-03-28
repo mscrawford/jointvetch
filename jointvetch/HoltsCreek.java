@@ -7,6 +7,7 @@ import sim.engine.*;
 import sim.io.geo.*;
 import java.io.InputStream;
 import java.io.FileInputStream;
+import java.util.zip.GZIPInputStream;
 import sim.util.*;
 import sim.util.geo.GeomPlanarGraph;
 import sim.util.distribution.Uniform;
@@ -32,43 +33,38 @@ class HoltsCreek extends SimState
 	/* data files */
 	private static final String pampoint = "/data/Pampoint/Pampoint_All.shp";
 	private static final String flowline = "/data/riverFlow/riverFlow.shp";
-	private static final String flowArea = "/data/riverArea/riverArea.shp";
 	private static final String waterbody = "/data/Waterbody/waterbody.shp";
-	private static final String rasterFile = "data/waterbody_raster/waterbody_raster.asc"; /* goodness */
-
+	private static final String rasterFile = "data/waterbody_raster/waterbody_raster.asc.gz"; /* goodness */
 	private static final String seedFloatTimesFile = "data/seedFloatTimes.txt";
 
 	GeometryFactory factory = new GeometryFactory();
 	private Envelope MBR = new Envelope();
 
 	/* plant geometries */
-	GeomVectorField initialPlant_vectorField = new GeomVectorField();
-	GeomVectorField reproducingPlants_vectorField = new GeomVectorField(); // used by DBSCAN
+	GeomVectorField initialPlants_vf = new GeomVectorField();
+	GeomVectorField reproducingPlants_vf = new GeomVectorField(); // used by DBSCAN
 
 	/* geographic geometries, the network of rivers and tidally innundated landmass */
-	GeomVectorField river_vectorField = new GeomVectorField();
-	GeomVectorField riverArea_vectorField = new GeomVectorField();
-	GeomVectorField tidal_vectorField = new GeomVectorField();
-	GeomVectorField boundary_vectorField = new GeomVectorField();
-	GeomPlanarGraph river_Network = new GeomPlanarGraph(); // the directed graph/network
+	GeomVectorField riverLines_vf = new GeomVectorField();
+	GeomVectorField tidal_vf = new GeomVectorField();
+	GeomVectorField boundary_vf = new GeomVectorField();
+	GeomPlanarGraph riverNetwork = new GeomPlanarGraph(); // the directed graph/network
 
 	/* competition & carrying capacity rasters */
-	GeomGridField colorRaster_GridField = new GeomGridField();
-	GeomGridField plotGrid_GridField = new GeomGridField();
-	int rasterHeight, rasterWidth;
+	GeomGridField redRaster_gf = new GeomGridField();
+	GeomGridField plotGrid_gf = new GeomGridField();
+	int gridHeight, gridWidth;
 
 	/* geometries for distance detection */
-	MultiLineString river_Geometries;
-	MultiPolygon tidal_Geometries;
-	Geometry tidal_Boundary;
-	MultiPolygon riverArea_Geometries;
+	MultiLineString river_mls;
+	MultiPolygon tidal_mp;
+	Geometry tidalBoundary_g;
 	
 	/* independent variables */
 	private double adjustmentFactor;
 	private double stochMax;
 	private double implantationRate;
 	private boolean hydrochoryBool;
-	private double seedBankRate;
 
 	/* seed floatation data, see methods */
 	int[] seedFloatTimes = new int[499];
@@ -102,7 +98,9 @@ class HoltsCreek extends SimState
 		stochMax = Double.parseDouble(args[0]);
 		hydrochoryBool = Boolean.parseBoolean(args[1]);
 		implantationRate = Double.parseDouble(args[2]);
-		seedBankRate = Double.parseDouble(args[3]); // unused
+		adjustmentFactor = Double.parseDouble(args[3]);
+
+		assert (stochMax >= 1.0) : "Stochasticity must be 1 or greater.";
 	}
 
 	public static void main(String[] args) throws Exception
@@ -137,104 +135,88 @@ class HoltsCreek extends SimState
 	private void readData()
 	{
 		try {
-			initialPlant_vectorField.clear();
-			reproducingPlants_vectorField.clear();
+			initialPlants_vf.clear();
+			reproducingPlants_vf.clear();
 
-			river_vectorField.clear();
-			riverArea_vectorField.clear();
-			tidal_vectorField.clear();
-			boundary_vectorField.clear();
+			riverLines_vf.clear();
+			tidal_vf.clear();
+			boundary_vf.clear();
 
-			colorRaster_GridField.clear();
-			plotGrid_GridField.clear();
+			redRaster_gf.clear();
+			plotGrid_gf.clear();
 
 			// joint-vetch Populations
 			URL pampnt = HoltsCreek.class.getResource(pampoint);
-			ShapeFileImporter.read(pampnt, initialPlant_vectorField);
-			MBR.expandToInclude(initialPlant_vectorField.getMBR());
+			ShapeFileImporter.read(pampnt, initialPlants_vf);
+			MBR.expandToInclude(initialPlants_vf.getMBR());
 
 			// river network
 			URL riverFlow = HoltsCreek.class.getResource(flowline);
-			ShapeFileImporter.read(riverFlow, river_vectorField);
-			MBR.expandToInclude(river_vectorField.getMBR());
-
-			// river area
-			URL riverArea = HoltsCreek.class.getResource(waterbody);
-			ShapeFileImporter.read(riverArea, riverArea_vectorField);
-			MBR.expandToInclude(riverArea_vectorField.getMBR());
+			ShapeFileImporter.read(riverFlow, riverLines_vf);
+			MBR.expandToInclude(riverLines_vf.getMBR());
 
 			// tidal areas
 			URL tidalArea = HoltsCreek.class.getResource(waterbody);
-			ShapeFileImporter.read(tidalArea, tidal_vectorField);
-			MBR.expandToInclude(tidal_vectorField.getMBR());
+			ShapeFileImporter.read(tidalArea, tidal_vf);
+			MBR.expandToInclude(tidal_vf.getMBR());
 
 			// set up the river's network
-			river_Network.createFromGeomField(river_vectorField);
+			riverNetwork.createFromGeomField(riverLines_vf);
 
-			// color raster / competition map
-			InputStream is = new FileInputStream(rasterFile);
-			ArcInfoASCGridImporter.read(is, GridDataType.INTEGER, colorRaster_GridField);
-			MBR.expandToInclude(colorRaster_GridField.getMBR());
-			rasterHeight = colorRaster_GridField.getGridHeight();
-			rasterWidth = colorRaster_GridField.getGridWidth();
+			// red raster / competition map
+			GZIPInputStream cis = new GZIPInputStream(new FileInputStream(rasterFile));
+			ArcInfoASCGridImporter.read(cis, GridDataType.INTEGER, redRaster_gf);
+			MBR.expandToInclude(redRaster_gf.getMBR());
+			gridHeight = redRaster_gf.getGridHeight();
+			gridWidth = redRaster_gf.getGridWidth();
 
 			// plot grid
-			ObjectGrid2D plotGrid = new ObjectGrid2D(rasterWidth, rasterHeight);
-			plotGrid_GridField.setGrid(plotGrid);
-			MBR.expandToInclude(plotGrid_GridField.getMBR());
+			ObjectGrid2D plotGrid = new ObjectGrid2D(gridWidth, gridHeight);
+			plotGrid_gf.setGrid(plotGrid);
+			MBR.expandToInclude(plotGrid_gf.getMBR());
 
 			// set MBR for all GeomVectorFields
-			initialPlant_vectorField.setMBR(MBR);
-			reproducingPlants_vectorField.setMBR(MBR);
+			initialPlants_vf.setMBR(MBR);
+			reproducingPlants_vf.setMBR(MBR);
 
-			river_vectorField.setMBR(MBR);
-			tidal_vectorField.setMBR(MBR);
-			riverArea_vectorField.setMBR(MBR);
-			boundary_vectorField.setMBR(MBR);
-			colorRaster_GridField.setMBR(MBR);
-			plotGrid_GridField.setMBR(MBR);
+			riverLines_vf.setMBR(MBR);
+			tidal_vf.setMBR(MBR);
+			boundary_vf.setMBR(MBR);
+			redRaster_gf.setMBR(MBR);
+			plotGrid_gf.setMBR(MBR);
 
 			/* ------------------------
  			* Pixel height has to be set or else the raster grid will be off alignment.
  			* ------------------------ */
-			colorRaster_GridField.setPixelHeight(1.0); 
-			colorRaster_GridField.setPixelWidth(1.0);
+			redRaster_gf.setPixelHeight(1.0); 
+			redRaster_gf.setPixelWidth(1.0);
 
-			plotGrid_GridField.setPixelHeight(1.0);
-			plotGrid_GridField.setPixelWidth(1.0);
+			plotGrid_gf.setPixelHeight(1.0);
+			plotGrid_gf.setPixelWidth(1.0);
 
-			/* Insert the river_vectorField geometries into a GeometryCollection (MultiLineString)
+			/* Insert the riverLines_vf geometries into a GeometryCollection (MultiLineString)
 				for distance sorting, see Plant.java */
-			Bag r_bag = river_vectorField.getGeometries();
+			Bag r_bag = riverLines_vf.getGeometries();
 			LineString[] r_arr = new LineString[r_bag.size()];
 			for (int i = 0, s = r_bag.size(); i < s; i++)
 			{
 				r_arr[i] = (LineString) ( (MasonGeometry) r_bag.get(i) ).getGeometry();
 			}
-			river_Geometries = new MultiLineString(r_arr, factory);
-
-			/* Insert the riverArea geometries into a GeometryCollection (MultiPolygon) */
-			Bag ra_bag = riverArea_vectorField.getGeometries();
-			Polygon[] ra_arr = new Polygon[ra_bag.size()];
-			for (int i = 0, s = ra_bag.size(); i < s; i++)
-			{
-				ra_arr[i] = (Polygon) ( (MasonGeometry) ra_bag.get(i) ).getGeometry();
-			}
-			riverArea_Geometries = new MultiPolygon(ra_arr, factory);
+			river_mls = new MultiLineString(r_arr, factory);
 
 			/* Insert the waterBody geometries into a GeometryCollection (MultiPolygon) for
 				distance sorting, see Plant.java */
-			Bag t_bag = tidal_vectorField.getGeometries();
+			Bag t_bag = tidal_vf.getGeometries();
 			Polygon[] t_arr = new Polygon[t_bag.size()];
 			for (int i = 0, s = t_bag.size(); i < s; i++)
 			{
 				t_arr[i] = (Polygon) ( (MasonGeometry) t_bag.get(i) ).getGeometry();
 			}
-			tidal_Geometries = new MultiPolygon(t_arr, factory);
+			tidal_mp = new MultiPolygon(t_arr, factory);
 
-			tidal_Boundary = tidal_Geometries.getBoundary(); /* Take the boundary of these geometries so
+			tidalBoundary_g = tidal_mp.getBoundary(); /* Take the boundary of these geometries so
 				we can find how far the seed is to the river in Plant.java. */
-			boundary_vectorField.addGeometry(new MasonGeometry(tidal_Boundary));
+			boundary_vf.addGeometry(new MasonGeometry(tidalBoundary_g));
 
 			/*
 				Read in Dr. Griffith's seed floatation data, ceiling it to whole integers.
@@ -246,7 +228,7 @@ class HoltsCreek extends SimState
 			{
 				seedFloatTimes[index++] = (int) Math.ceil( s.nextDouble() );
 			}
-		} catch (FileNotFoundException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
@@ -259,8 +241,8 @@ class HoltsCreek extends SimState
 	 */
 	private void setupInitialPlantPopulations()
 	{
-		Bag jointvetch_Bag = new Bag(initialPlant_vectorField.getGeometries());
-		// random.setSeed(0);
+		Bag jointvetch_Bag = new Bag(initialPlants_vf.getGeometries());
+// random.setSeed(0);
 		for (int i = 0, s = jointvetch_Bag.size(); i < s; i++)
 		{
 			MasonGeometry curPopulation = (MasonGeometry) jointvetch_Bag.get(i);
@@ -277,7 +259,7 @@ class HoltsCreek extends SimState
 				Plant p = new Plant(new MasonGeometry(factory.createPoint(plantLoc)), true);
 			}
 		}
-		random.setSeed(seed());
+// random.setSeed(seed());
 	}
 
 	/**
@@ -310,10 +292,6 @@ class HoltsCreek extends SimState
 
 	boolean getHydrochoryBool() {
 		return hydrochoryBool;
-	}
-
-	double getSeedBankRate() {
-		return seedBankRate;
 	}
 
 }

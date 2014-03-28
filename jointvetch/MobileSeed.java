@@ -39,11 +39,11 @@ class MobileSeed implements Steppable
 	private static final int TIDAL_PERIOD = 13; /* hours */
 	private int maxFloatTime; // represents	how long any given seed will survive in the river
 	private int floatTimer = 0; // counter to maxFloatTime
-	private LengthIndexedLine river_LengthIndexedLine = null;
+	private LengthIndexedLine river_lil = null;
 	private double startIndex = 0.0; // start position of current line
 	private double endIndex = 0.0;
 	private double currentIndex = 0.0;
-	private PointMoveTo pointMoveTo = new PointMoveTo();
+	private PointMoveTo pmt = new PointMoveTo();
 	private boolean deadEnd = false;
 
 	/**
@@ -89,9 +89,9 @@ class MobileSeed implements Steppable
 			Point entryPoint = hc.factory.createPoint(entryLocation.getCoordinate());
 			LineString closestRiverString = (LineString) entryLocation.getGeometryComponent();
 
-			int x = hc.colorRaster_GridField.toXCoord((Point) location.getGeometry());
-			int y = hc.colorRaster_GridField.toYCoord((Point) location.getGeometry());
-			int rasterColor = ((IntGrid2D) hc.colorRaster_GridField.getGrid()).get(x, y);
+			int x = hc.redRaster_gf.toXCoord((Point) location.getGeometry());
+			int y = hc.redRaster_gf.toYCoord((Point) location.getGeometry());
+			int rasterColor = ((IntGrid2D) hc.redRaster_gf.getGrid()).get(x, y);
 
 			if (hc.random.nextBoolean(Parameters.HYDROCHORY_PROB) || rasterColor == hc.RIVER_RASTER_COLOR)
 			{
@@ -112,8 +112,8 @@ class MobileSeed implements Steppable
 				if (Parameters.hydrochoryBool == true)
 				{
 					// drop the seed into the closestRiverString segment, at the closestRiverPoint point.
-					pointMoveTo.setCoordinate(entryPoint.getCoordinate());
-					location.getGeometry().apply(pointMoveTo);
+					pmt.setCoordinate(entryPoint.getCoordinate());
+					location.getGeometry().apply(pmt);
 					setupHydrochory(closestRiverString, (Point) location.getGeometry());
 
 					hc.schedule.scheduleOnce(hc.schedule.getTime() + hc.random.nextDouble() * TIDAL_PERIOD * 2, this);
@@ -129,15 +129,9 @@ class MobileSeed implements Steppable
 					}
 				}	
 			}
-			else
-			{
-				implant();
-			}
+			else implant();
 		}
-		else
-		{
-			implant(); // We're implanting right where we initially dropped.
-		}
+		else implant(); // We're implanting right where we initially dropped.
 	}
 
 	/**
@@ -148,7 +142,7 @@ class MobileSeed implements Steppable
 	{
 		if (hc.random.nextBoolean(Parameters.implantationRate))
 		{
-			DistanceOp riverToWaterbody = new DistanceOp( hc.tidal_Geometries, location.getGeometry() );
+			DistanceOp riverToWaterbody = new DistanceOp( hc.tidal_mp, location.getGeometry() );
 			Coordinate[] riverToWaterbodyCoords = riverToWaterbody.nearestPoints();
 			Coordinate waterbodyCoord = (Coordinate) riverToWaterbodyCoords[0].clone();
 			Coordinate riverCoord = (Coordinate) riverToWaterbodyCoords[1].clone();
@@ -158,7 +152,7 @@ class MobileSeed implements Steppable
 			double slope = (waterbodyCoord.y - riverCoord.y) / (waterbodyCoord.x - riverCoord.x);
 			double angle;
 			if (Double.isNaN(slope)) {
-				assert (hc.tidal_Geometries.intersects(location.getGeometry())) : "Implantation angle should exist, but does not.";
+				assert (hc.tidal_mp.intersects(location.getGeometry()));
 				angle = hc.random.nextDouble() * 2 * Math.PI;
 			} else {
 				angle = Math.atan(slope);
@@ -167,15 +161,15 @@ class MobileSeed implements Steppable
 			double dist = hc.random.nextDouble() * Parameters.IMPLANTATION_MAXIMUM_DISTANCE; // uniform dist from 0 - 4m
 			double xOffset = dist * Math.cos(angle);
 			double yOffset = dist * Math.sin(angle);
-			Coordinate implantationCoord;
+			Coordinate implantationCoordinate;
 			if (riverCoord.x <= waterbodyCoord.x) {
-				implantationCoord = new Coordinate(waterbodyCoord.x + xOffset, waterbodyCoord.y + yOffset);
+				implantationCoordinate = new Coordinate(waterbodyCoord.x + xOffset, waterbodyCoord.y + yOffset);
 			} else {
-				implantationCoord = new Coordinate(waterbodyCoord.x - xOffset, waterbodyCoord.y - yOffset); 
+				implantationCoordinate = new Coordinate(waterbodyCoord.x - xOffset, waterbodyCoord.y - yOffset); 
 			}
 
-			pointMoveTo.setCoordinate(implantationCoord);
-			location.getGeometry().apply(pointMoveTo);
+			pmt.setCoordinate(implantationCoordinate);
+			location.getGeometry().apply(pmt);
 			implant();
 		}
 		else if (floatTimer <= maxFloatTime) // keep on hydrochorying
@@ -183,7 +177,7 @@ class MobileSeed implements Steppable
 			double distanceThisHour = tidalRateFunction( hc.schedule.getTime() );
 			double distanceTraveled = 0;
 			final double SCALE = 10000000.0;
-			double distanceToTravel = (Math.round(Math.abs(distanceThisHour)*SCALE)/SCALE)-1; // why -1? refresh this
+			double distanceToTravel = (Math.round( Math.abs(distanceThisHour)*SCALE )/SCALE)-1; // why -1? refresh this
 
 			while (distanceTraveled < distanceToTravel && deadEnd == false) // do we want dead ends to work like this?
 			{
@@ -215,9 +209,9 @@ class MobileSeed implements Steppable
 				{
 					findNewPath();
 				}
-				Coordinate currentPos = river_LengthIndexedLine.extractPoint(currentIndex);
-				pointMoveTo.setCoordinate(currentPos);
-				location.getGeometry().apply(pointMoveTo);
+				Coordinate currentPos = river_lil.extractPoint(currentIndex);
+				pmt.setCoordinate(currentPos);
+				location.getGeometry().apply(pmt);
 			}
 
 			deadEnd = false;
@@ -232,28 +226,19 @@ class MobileSeed implements Steppable
 	 */
 	private void implant()
 	{
-		int x = hc.colorRaster_GridField.toXCoord((Point) location.getGeometry());
-		int y = hc.colorRaster_GridField.toYCoord((Point) location.getGeometry());
-		myPlot = e.getPlot(x, y);
+		int x = hc.redRaster_gf.toXCoord((Point) location.getGeometry());
+		int y = hc.redRaster_gf.toYCoord((Point) location.getGeometry());
 
-		if (hc.random.nextBoolean(Parameters.WINTER_SURVIVAL_RATE))
+		if (x < hc.gridWidth && x > 0 && y < hc.gridHeight && y > 0) // very rare OOB exception
 		{
-			double prob = hc.random.nextDouble();
-			double germProb = myPlot.getGerminationProb();
+			myPlot = e.getPlot(x, y);
 
-			if (prob < germProb)
+			if (hc.random.nextBoolean(Parameters.WINTER_SURVIVAL_RATE))
 			{
 				Plant p = new Plant(location, false);
 			}
-			/* ------------------------
-			 * No seed bank for now
-			 * ------------------------ */
-			// else if (prob < germProb + Parameters.seedBankRate)
-			// {
-			// 	BankedSeed bs = new BankedSeed(location);
-			// }
 
-			// some seeds are dying implicitly here.
+			// implicit seed death			
 		}
 	}
 
@@ -277,7 +262,7 @@ class MobileSeed implements Steppable
 	private void findNewPath()
 	{
 		// find all the adjacent junctions
-		Node currentJunction = hc.river_Network.findNode( location.getGeometry().getCoordinate() );
+		Node currentJunction = hc.riverNetwork.findNode( location.getGeometry().getCoordinate() );
 
 		if (currentJunction != null)
 		{
@@ -323,10 +308,10 @@ class MobileSeed implements Steppable
 	*/
 	private void setupHydrochory(LineString riverString, Point riverPoint)
 	{
-		river_LengthIndexedLine = new LengthIndexedLine(riverString);
-		startIndex = river_LengthIndexedLine.getStartIndex();
-		endIndex = river_LengthIndexedLine.getEndIndex();
-		currentIndex = river_LengthIndexedLine.indexOf(riverPoint.getCoordinate());
+		river_lil = new LengthIndexedLine(riverString);
+		startIndex = river_lil.getStartIndex();
+		endIndex = river_lil.getEndIndex();
+		currentIndex = river_lil.indexOf(riverPoint.getCoordinate());
 	}
 
 	/**

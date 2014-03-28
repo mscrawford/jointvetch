@@ -23,8 +23,6 @@ import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Point;
 import com.vividsolutions.jts.io.ParseException;
-
-
 import sim.portrayal.grid.FastValueGridPortrayal2D;
 import sim.util.gui.SimpleColorMap;
 
@@ -41,11 +39,11 @@ class HoltsCreekWithUI extends GUIState
 	static Display2D display;
 	static JFrame displayFrame;
 
-	private static GeomVectorFieldPortrayal riverPortrayal = new GeomVectorFieldPortrayal();
-	private static GeomVectorFieldPortrayal tidalPortrayal = new GeomVectorFieldPortrayal();
-	private static GeomVectorFieldPortrayal tidalBoundaryPortrayal = new GeomVectorFieldPortrayal();   
-	private static GeomVectorFieldPortrayal reproducingPlantsPortrayal = new GeomVectorFieldPortrayal();
-	private static FastValueGridPortrayal2D gridPortrayal = new FastValueGridPortrayal2D();
+	private static GeomVectorFieldPortrayal river_p = new GeomVectorFieldPortrayal();
+	private static GeomVectorFieldPortrayal tidal_p = new GeomVectorFieldPortrayal();
+	private static GeomVectorFieldPortrayal tidalBoundary_p = new GeomVectorFieldPortrayal();   
+	private static GeomVectorFieldPortrayal reproducingPlants_p = new GeomVectorFieldPortrayal();
+	private static FastValueGridPortrayal2D grid_p = new FastValueGridPortrayal2D();
 
 	public HoltsCreekWithUI(String[] args) throws ParseException
 	{
@@ -54,17 +52,17 @@ class HoltsCreekWithUI extends GUIState
 	
 	public static void main(String[] args)
 	{
-		HoltsCreekWithUI worldGUI = null;
+		HoltsCreekWithUI hcGUI = null;
 		
 		try {
-			worldGUI = new HoltsCreekWithUI(args);
+			hcGUI = new HoltsCreekWithUI(args);
 		} catch (ParseException ex) {
 			ex.printStackTrace();
 		}
 		
-		Console c = new Console(worldGUI);
+		Console c = new Console(hcGUI);
 		c.setVisible(true);
-		worldGUI.start();
+		hcGUI.start();
 	}
 
 	public void start()
@@ -75,22 +73,22 @@ class HoltsCreekWithUI extends GUIState
 	
 	static void setupPortrayals()
 	{
-		HoltsCreek world = HoltsCreek.instance();
+		HoltsCreek hc = HoltsCreek.instance();
 
-		riverPortrayal.setField(world.river_vectorField);
-		riverPortrayal.setPortrayalForAll(new GeomPortrayal(Color.BLUE, .2, true));
+		river_p.setField(hc.riverLines_vf);
+		river_p.setPortrayalForAll(new GeomPortrayal(Color.BLUE, .2, true));
 
-		tidalPortrayal.setField(world.tidal_vectorField);
-		tidalPortrayal.setPortrayalForAll(new GeomPortrayal(Color.GRAY, 1, true));
+		tidal_p.setField(hc.tidal_vf);
+		tidal_p.setPortrayalForAll(new GeomPortrayal(Color.GRAY, 1, true));
 
-		tidalBoundaryPortrayal.setField(world.boundary_vectorField);
-		tidalBoundaryPortrayal.setPortrayalForAll(new GeomPortrayal(Color.BLACK, .2, true)); 
+		tidalBoundary_p.setField(hc.boundary_vf);
+		tidalBoundary_p.setPortrayalForAll(new GeomPortrayal(Color.BLACK, .2, true)); 
 
-		reproducingPlantsPortrayal.setField(world.reproducingPlants_vectorField);
-		reproducingPlantsPortrayal.setPortrayalForAll(new GeomPortrayal(Color.RED, .1, true));
+		reproducingPlants_p.setField(hc.reproducingPlants_vf);
+		reproducingPlants_p.setPortrayalForAll(new GeomPortrayal(Color.RED, .1, true));
 
-		gridPortrayal.setField(world.colorRaster_GridField.getGrid());
-		gridPortrayal.setMap(new SimpleColorMap(0, 255, Color.black, Color.white));
+		grid_p.setField(hc.redRaster_gf.getGrid());
+		grid_p.setMap(new SimpleColorMap(0, 255, Color.black, Color.white));
 
 		display.reset();
         display.setBackdrop(Color.WHITE);
@@ -102,12 +100,12 @@ class HoltsCreekWithUI extends GUIState
 		super.init(c);
 		display = new Display2D(WIDTH, HEIGHT, this);		
 
-		display.attach(tidalPortrayal, "Tidal areas", true);
+		display.attach(tidal_p, "Tidal areas", true);
 		
-		display.attach(tidalBoundaryPortrayal, "Tidal boundary", true);
-		display.attach(reproducingPlantsPortrayal, "Reproducing Plants", true);
-		display.attach(gridPortrayal, "My Grid Layer");
-		display.attach(riverPortrayal, "Rivers", true);
+		display.attach(tidalBoundary_p, "Tidal boundary", true);
+		display.attach(reproducingPlants_p, "Reproducing Plants", true);
+		display.attach(grid_p, "My Grid Layer");
+		display.attach(river_p, "Rivers", true);
 
 		displayFrame = display.createFrame();
 		c.registerFrame(displayFrame);
@@ -117,7 +115,8 @@ class HoltsCreekWithUI extends GUIState
 
 	static void takeSnapshot()
 	{
-		String pathname = "/users/michaelcrawford/Desktop/runs/" + Integer.toString(new Integer(Environment.instance().getYear()));
+		String pathname = "/users/michaelcrawford/Desktop/runs/" + 
+			Integer.toString(new Integer(Environment.instance().getYear()));
 		System.out.println(pathname);
 		JFileChooser jfc = new JFileChooser();
 		try 

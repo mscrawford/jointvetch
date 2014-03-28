@@ -2,10 +2,6 @@ jointvetch
 ==========
 An agent-based, pattern-oriented, and GIS based simulation of Aeschynomene virginica
 
-To run, clone everything to a repository and add several files to your java classpath:
 
-jointvetch/MASON/mason/ jointvetch/MASON/mason/jar/mason.16.jar jointvetch/MASON/mason/geomason.1.4.jar jointvetch/MASON/mason/itext-1.2.jar jointvetch/MASON/mason/jcommon-1.0.16.jar jointvetch/MASON/mason/jfreechart-1.0.13.jar jointvetch/MASON/mason/jmf.jar jointvetch/MASON/mason/jts-1.11.jar jointvetch/MASON/jointvetch
-
-To run:
-
-java jointvetch.HoltsCreek (fecundity shape) (fecundity scale) (dock probability) java jointvetch.HoltsCreekWithUI (fecundity shape) (fecundity scale) (dock probability)
+relative classpath: 
+../jointvetch/:../lib/mason/jar/mason.17.jar:../lib/geomason-1.5/geomason.1.5.jar:../lib/jts-1.13/lib/jts-1.13.jar:../lib/mason/itext-1.2.jar:../lib/mason/jcommon-1.0.21.jar:/../lib/mason/jmf.jar:../lib/mason/portfolio.jar:../lib/mason/jfreechart-1.0.17.jar:../lib/commons-math3-3.2/commons-math3-3.2.jar"

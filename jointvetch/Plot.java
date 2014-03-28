@@ -25,26 +25,26 @@ class Plot
 	private List<Integer> historyCounts;
 
 	private int population, culled;
+	private double fecundityCompetitionModifier;
+
+private int carryingCapacity;
 
 	Plot(int x, int y)
 	{
 		hc = HoltsCreek.instance();
 		e = Environment.instance();
 
-		rasterColor = ((IntGrid2D) hc.colorRaster_GridField.getGrid()).get(x,y);
+		rasterColor = ( (IntGrid2D) hc.redRaster_gf.getGrid() ).get(x,y);
 		population = 0;
 
 		historyCounts = new ArrayList<Integer>();
 		instantiationYear = year = e.getYear();
-		for (int i = 0; i < year; i++)
-		{
-			historyCounts.add(0);
-		}
+		for (int i = 0; i < year; i++) historyCounts.add(0);
 		skipYears = instantiationYear + JUDGEMENT_GRACE_PERIOD;
 
-		germRate = Parameters.getGermRate(rasterColor);
 		survRate = Parameters.getSurvRate(rasterColor);
 		fecundity = Parameters.getFecundity(rasterColor);
+		carryingCapacity = Parameters.getCarryingCapacity(rasterColor);
 	}
 
 	void registerYearEnd(int year)
@@ -58,17 +58,15 @@ class Plot
 	{
 		double adjusted;
 		double naive = (double) population;
-		if (naive > Parameters.CARRYING_CAPACITY)
-		{
-			adjusted = Parameters.CARRYING_CAPACITY;
-		}
+		if (naive > carryingCapacity)
+			adjusted = carryingCapacity;
 		else
-		{
 			adjusted = naive;
-		}
-		double n = adjusted/naive;
 
-		return (n > 1.0 ? 1 : n);
+		fecundityCompetitionModifier = adjusted/naive;
+
+		assert (fecundityCompetitionModifier <= 1.0);
+		return (fecundityCompetitionModifier);
 	}
 
 	void registerNewPlant() {
@@ -79,18 +77,13 @@ class Plot
 		culled++;
 	}
 
-	double getGerminationProb() {
-		double n = germRate * e.getEnvironmentalStochasticity() * Parameters.ADJUSTMENT_FACTOR;
-		return (n > 1.0 ? 1 : n);
-	}
-
 	double getSurvivalProb() {
-		double n = survRate * e.getEnvironmentalStochasticity() * Parameters.ADJUSTMENT_FACTOR;
-		return (n > 1.0 ? 1 : n);
+		double n = survRate * e.getEnvironmentalStochasticity() * Math.sqrt(Parameters.getAdjustment());
+		return (n > 1.0 ? 1.0 : n);
 	}
 
 	int getFecundity() {
-		int n = (int) (fecundity * e.getEnvironmentalStochasticity() * Parameters.ADJUSTMENT_FACTOR);
+		int n = (int) (fecundity * e.getEnvironmentalStochasticity() * Math.sqrt(Parameters.getAdjustment()) * fecundityCompetitionModifier);
 		return n;
 	}
 
@@ -108,7 +101,7 @@ class Plot
 		{
 			double sum = 0;
 			int count = 0;
-			for (int i=0, s = historyCounts.size(); i < s; i++)
+			for (int i = 0, s = historyCounts.size(); i < s; i++)
 			{
 				if (i >= skipYears && i >= historyCounts.size() - JUDGEMENT_WINDOW) // counting the last three years
 				{

@@ -3,7 +3,7 @@
 LOCALBASEDIR=/Users/Theodore/Documents
 REMOTEBASEDIR=/home/mcrawford
 REMOTERESULTS=/home/mcrawford/results
-RESULTSSAVEDIR=/Users/Theodore/Documents/Google_Drive/SJV_EcologicalModelling_Paper/Analysis/Adjustment_Factor_Optimization
+RESULTSSAVEDIR=/Users/Theodore/Documents/Google_Drive/SJV_EcologicalModelling_Paper/analysis_and_validation/CC_linked_to_redness/output_data/distributed_level_CC
 SSH="ssh -p 21212 mcrawford@199.111.89.20"
 
 #while true

@@ -33,108 +33,106 @@ import sim.util.gui.SimpleColorMap;
 
 class HoltsCreekWithUI extends GUIState
 {
-	private static final int HEIGHT = 700; 
-	private static final int WIDTH = 650;
+    private static final int HEIGHT = 700; 
+    private static final int WIDTH = 650;
 
-	static Display2D display;
-	static JFrame displayFrame;
+    static Display2D display;
+    static JFrame displayFrame;
 
-	private static GeomVectorFieldPortrayal river_p = new GeomVectorFieldPortrayal();
-	private static GeomVectorFieldPortrayal tidal_p = new GeomVectorFieldPortrayal();
-	private static GeomVectorFieldPortrayal tidalBoundary_p = new GeomVectorFieldPortrayal();   
-	private static GeomVectorFieldPortrayal reproducingPlants_p = new GeomVectorFieldPortrayal();
-	private static FastValueGridPortrayal2D grid_p = new FastValueGridPortrayal2D();
+    private static GeomVectorFieldPortrayal river_p = new GeomVectorFieldPortrayal();
+    private static GeomVectorFieldPortrayal tidal_p = new GeomVectorFieldPortrayal();
+    private static GeomVectorFieldPortrayal tidalBoundary_p = new GeomVectorFieldPortrayal();   
+    private static GeomVectorFieldPortrayal reproducingPlants_p = new GeomVectorFieldPortrayal();
+    private static FastValueGridPortrayal2D grid_p = new FastValueGridPortrayal2D();
 
-	public HoltsCreekWithUI(String[] args) throws ParseException
-	{
-		super(HoltsCreek.instance(System.currentTimeMillis(), args));
-	}
-	
-	public static void main(String[] args)
-	{
-		HoltsCreekWithUI hcGUI = null;
-		
-		try {
-			hcGUI = new HoltsCreekWithUI(args);
-		} catch (ParseException ex) {
-			ex.printStackTrace();
-		}
-		
-		Console c = new Console(hcGUI);
-		c.setVisible(true);
-		hcGUI.start();
-	}
+    public HoltsCreekWithUI(String[] args) throws ParseException
+    {
+        super(HoltsCreek.instance(System.currentTimeMillis(), args));
+    }
+    
+    public static void main(String[] args)
+    {
+        HoltsCreekWithUI hcGUI = null;
+        
+        try {
+            hcGUI = new HoltsCreekWithUI(args);
+        } catch (ParseException ex) {
+            ex.printStackTrace();
+        }
+        
+        Console c = new Console(hcGUI);
+        c.setVisible(true);
+        hcGUI.start();
+    }
 
-	public void start()
-	{
-		super.start();
-		setupPortrayals();
-	}
-	
-	static void setupPortrayals()
-	{
-		HoltsCreek hc = HoltsCreek.instance();
+    public void start()
+    {
+        super.start();
+        setupPortrayals();
+    }
+    
+    static void setupPortrayals()
+    {
+        HoltsCreek hc = HoltsCreek.instance();
 
-		river_p.setField(hc.riverLines_vf);
-		river_p.setPortrayalForAll(new GeomPortrayal(Color.BLUE, .2, true));
+        river_p.setField(hc.riverLines_vf);
+        river_p.setPortrayalForAll(new GeomPortrayal(Color.BLUE, .2, true));
 
-		tidal_p.setField(hc.tidal_vf);
-		tidal_p.setPortrayalForAll(new GeomPortrayal(Color.GRAY, 1, true));
+        tidal_p.setField(hc.tidal_vf);
+        tidal_p.setPortrayalForAll(new GeomPortrayal(Color.GRAY, 1, true));
 
-		tidalBoundary_p.setField(hc.boundary_vf);
-		tidalBoundary_p.setPortrayalForAll(new GeomPortrayal(Color.BLACK, .2, true)); 
+        tidalBoundary_p.setField(hc.boundary_vf);
+        tidalBoundary_p.setPortrayalForAll(new GeomPortrayal(Color.BLACK, .2, true)); 
 
-		reproducingPlants_p.setField(hc.reproducingPlants_vf);
-		reproducingPlants_p.setPortrayalForAll(new GeomPortrayal(Color.RED, .1, true));
+        reproducingPlants_p.setField(hc.reproducingPlants_vf);
+        reproducingPlants_p.setPortrayalForAll(new GeomPortrayal(Color.RED, .1, true));
 
-		grid_p.setField(hc.redRaster_gf.getGrid());
-		grid_p.setMap(new SimpleColorMap(0, 255, Color.black, Color.white));
+        grid_p.setField(hc.redRaster_gf.getGrid());
+        grid_p.setMap(new SimpleColorMap(0, 255, Color.black, Color.white));
 
-		display.reset();
+        display.reset();
         display.setBackdrop(Color.WHITE);
-		display.repaint();
-	}
+        display.repaint();
+    }
 
-	public void init(Controller c)
-	{
-		super.init(c);
-		display = new Display2D(WIDTH, HEIGHT, this);		
+    public void init(Controller c)
+    {
+        super.init(c);
+        display = new Display2D(WIDTH, HEIGHT, this);       
 
-		display.attach(tidal_p, "Tidal areas", true);
-		
-		display.attach(tidalBoundary_p, "Tidal boundary", true);
-		display.attach(reproducingPlants_p, "Reproducing Plants", true);
-		display.attach(grid_p, "My Grid Layer");
-		display.attach(river_p, "Rivers", true);
+        display.attach(tidal_p, "Tidal areas", true);
+        
+        display.attach(tidalBoundary_p, "Tidal boundary", true);
+        display.attach(reproducingPlants_p, "Reproducing Plants", true);
+        display.attach(grid_p, "My Grid Layer");
+        display.attach(river_p, "Rivers", true);
 
-		displayFrame = display.createFrame();
-		c.registerFrame(displayFrame);
-		displayFrame.setVisible(true);
-		display.removeListeners();	
-	}
+        displayFrame = display.createFrame();
+        c.registerFrame(displayFrame);
+        displayFrame.setVisible(true);
+        display.removeListeners();  
+    }
 
-	static void takeSnapshot()
-	{
-		String pathname = "/users/michaelcrawford/Desktop/runs/" + 
-			Integer.toString(new Integer(Environment.instance().getYear()));
-		System.out.println(pathname);
-		JFileChooser jfc = new JFileChooser();
-		try 
-		{
-			jfc.getFileSystemView().createFileObject(pathname).createNewFile();
-			display.takeSnapshot(jfc.getFileSystemView().createFileObject(pathname), 1); 
-		} catch (Exception e) {
-			System.out.println("Screenshot fail");
-		}
-	}
+    static void takeSnapshot()
+    {
+        String pathname = "/users/michaelcrawford/Desktop/runs/" + 
+            Integer.toString(new Integer(Environment.instance().getYear()));
+        System.out.println(pathname);
+        JFileChooser jfc = new JFileChooser();
+        try 
+        {
+            jfc.getFileSystemView().createFileObject(pathname).createNewFile();
+            display.takeSnapshot(jfc.getFileSystemView().createFileObject(pathname), 1); 
+        } catch (Exception e) {
+            System.out.println("Screenshot fail");
+        }
+    }
 
-	public void quit()
-	{
-		super.quit();
-		if (displayFrame != null) { 
-			displayFrame.dispose(); 
-		}
-		displayFrame = null;
-		display = null;
-	}
+    public void quit()
+    {
+        super.quit();
+        if (displayFrame != null) displayFrame.dispose(); 
+        displayFrame = null;
+        display = null;
+    }
 }

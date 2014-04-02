@@ -35,7 +35,7 @@ DATE=$(date +%Y%m%d-%H%M)
 $SSH "if [ -d $REMOTERESULTS ] ; then mkdir $REMOTEBASEDIR/archive/$DATE-results ; mv $REMOTERESULTS/* $REMOTEBASEDIR/archive/$DATE-results/ ; fi"
 
 echo "Running simulation"
-$SSH "cd $REMOTEBASEDIR/jointvetch/jointvetch && nohup xjobs -s $REMOTEBASEDIR/jointvetch/jointvetch/runs.sh -j 3 > log.out 2> log.err < /dev/null &"
+$SSH "cd $REMOTEBASEDIR/jointvetch/jointvetch && nohup xjobs -s $REMOTEBASEDIR/jointvetch/jointvetch/runs.sh -j 6 > log.out 2> log.err < /dev/null &"
 
 cd $LOCALBASEDIR/jointvetch/jointvetch/scripts
 

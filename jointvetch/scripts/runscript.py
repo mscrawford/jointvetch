@@ -15,20 +15,13 @@ import sys, os, subprocess, itertools, csv, copy, math
 # 			[0]]
 
 ## Adjustment Factor
-params = 	[[2],
+params = 	[[1],
 	 		["true"],
-	 		[0.0005],
-	 		[0],
-	 		[0.175, 0.1775, 0.180, 0.1825, 0.185]]
-
-## Testing
-# params = 	[[2],
-# 	 		["true"],
-# 	 		[0.0005],
-# 	 		[0]]
+	 		[0.002],
+	 		[0.15, 0.16, 0.17]]
 
 def makeRunCommands( computer ): # 'server' or 'computer'
-#	# -classpath "/home/mcrawford/jointvetch/jointvetch/:/home/mcrawford/jointvetch/lib/mason/jar/mason.17.jar:/home/mcrawford/jointvetch/lib/geomason-1.5/geomason.1.5.jar:/home/mcrawford/jointvetch/lib/jts-1.13/lib/jts-1.13.jar:/home/mcrawford/jointvetch/lib/mason/itext-1.2.jar:/home/mcrawford/jointvetch/lib/mason/jcommon-1.0.21.jar:/home/mcrawford/jointvetch/lib/mason/jmf.jar:/home/mcrawford/jointvetch/lib/mason/portfolio.jar:/home/mcrawford/jointvetch/lib/mason/jfreechart-1.0.17.jar:/home/mcrawford/jointvetch/lib/commons-math3-3.2/commons-math3-3.2.jar:/tmp"
+
 	if (computer == 'server'):
 		numRuns = 100
 		commandList = 'java -Xmx16g jointvetch.HoltsCreek '

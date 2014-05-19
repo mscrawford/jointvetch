@@ -3,15 +3,13 @@ package jointvetch;
 class Parameters
 {
     // independent variables
-    static double stochMax;
-    static boolean hydrochoryBool;
-    static double implantationRate;
+    static final double stochMax;
+    static final boolean hydrochoryBool;
+    static final double implantationRate;
+    static final double adjustmentFactor;
 
-    // warm up and linear scaling
+    // for first warmUp years, adjustment factor does not exist
     static final int warmUp = 3;
-    // static final double ADJUSTMENT_FACTOR = 0.20;
-
-static double ADJUSTMENT_FACTOR;
     
     // fuzzy distance measurements to correct for error
     static final double BUFFER_SIZE = 0.01;
@@ -23,7 +21,8 @@ static double ADJUSTMENT_FACTOR;
 
     // environment's parameters
     static final int MAX_YEAR_COUNT = 100;
-    static final int MAX_POPULATION_COUNT = 10000;
+    static final int MAX_POPULATION_COUNT = 150000;
+    static final int DBSCAN_CUTOFF = 25000; // too big a runtime for clustering analysis
 
     // DBSCAN implementation
     static final double EPSILON = 25.0;
@@ -85,7 +84,7 @@ static double ADJUSTMENT_FACTOR;
         stochMax = HoltsCreek.instance().getStochMax();
         hydrochoryBool = HoltsCreek.instance().getHydrochoryBool();
         implantationRate = HoltsCreek.instance().getImplantationRate();
-ADJUSTMENT_FACTOR = HoltsCreek.instance().getAdjustmentFactor();
+        adjustmentFactor = HoltsCreek.instance().getAdjustmentFactor();
     }
 
     // Suppress default constructor for noninstantiability
@@ -95,24 +94,23 @@ ADJUSTMENT_FACTOR = HoltsCreek.instance().getAdjustmentFactor();
 
     static double getSurvRate(int color)
     {
-        assert (color >= 0 && color < 256 || color == -9999);
+        assert (color >= 0 && color < 256 || color == HoltsCreek.RIVER_RASTER_COLOR);
 
-        if (color == -9999) return 0;
-        return SURV_QEXP[color];
+        return (color != HoltsCreek.RIVER_RASTER_COLOR) ? SURV_QEXP[color] : 0;
     }
 
     static int getFecundity(int color)
     {
-        assert (color >= 0 && color < 256 || color == -9999);
+        assert (color >= 0 && color < 256 || color == HoltsCreek.RIVER_RASTER_COLOR);
 
-        if (color == -9999) return 0;
-        return FEC_QEXP[color];
+        return (color != HoltsCreek.RIVER_RASTER_COLOR) ? FEC_QEXP[color] : 0;
     }
 
     static double getAdjustment() 
     {
         if (Environment.instance().getYear() < warmUp) return 1.0;
-        return ADJUSTMENT_FACTOR;
+
+        return adjustmentFactor;
     }
 
 }

@@ -32,10 +32,15 @@ scp -P 21212 ./tmp/runs.sh mcrawford@199.111.89.20:$REMOTEBASEDIR/jointvetch/joi
 
 DATE=$(date +%Y%m%d-%H%M)
 
-$SSH "if [ -d $REMOTERESULTS ] ; then mkdir $REMOTEBASEDIR/archive/$DATE-results ; mv $REMOTERESULTS/* $REMOTEBASEDIR/archive/$DATE-results/ ; fi"
+$SSH "if [ -d $REMOTERESULTS ] ; then \
+    mkdir $REMOTEBASEDIR/archive/$DATE-results ; \
+    mv $REMOTERESULTS/* $REMOTEBASEDIR/archive/$DATE-results/ ; \
+    fi"
 
 echo "Running simulation"
-$SSH "cd $REMOTEBASEDIR/jointvetch/jointvetch && nohup xjobs -s $REMOTEBASEDIR/jointvetch/jointvetch/runs.sh -j 6 > log.out 2> log.err < /dev/null &"
+$SSH "cd $REMOTEBASEDIR/jointvetch/jointvetch \
+    && nohup xjobs -s $REMOTEBASEDIR/jointvetch/jointvetch/runs.sh \
+    -j 8 > log.out 2> log.err < /dev/null &"
 
 cd $LOCALBASEDIR/jointvetch/jointvetch/scripts
 

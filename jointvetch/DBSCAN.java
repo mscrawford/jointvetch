@@ -5,7 +5,6 @@ import sim.util.Bag;
 import sim.util.geo.MasonGeometry;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.operation.distance.DistanceOp;
-import com.vividsolutions.jts.operation.distance.GeometryLocation;
 
 class DBSCAN
 {
@@ -15,7 +14,7 @@ class DBSCAN
     private int minPts; // minimum cluster size
     private Bag clusters; // return bag of clusters
 
-    private class DBObj
+    private static class DBObj
     {
         MasonGeometry geomPoint; 
         boolean visited; 
@@ -81,16 +80,16 @@ class DBSCAN
         for (int k = 0, s = neighborPts.size(); k < s; k++) // for each point P' in NeighborPts
         {
             DBObj kth = (DBObj) neighborPts.get(k);
-            if(kth.visited == false) // if P' is not visited
+            if (kth.visited == false) // if P' is not visited
             {
                 kth.visited = true; // mark P' as visited
                 Bag neighborPtsPrime = regionQuery(kth); // NeighborPts' = regionQuery(P', eps)
-                if(neighborPtsPrime.size() >= minPts) // if sizeof(NeighborPts') >= MinPts
+                if (neighborPtsPrime.size() >= minPts) // if sizeof(NeighborPts') >= MinPts
                 {
                     neighborPts.addAll(neighborPtsPrime); // NeighborPts = NeighborPts joined with NeighborPts'
                 }
             }
-            if(kth.clustered == false) // if P' is not yet member of any cluster
+            if (kth.clustered == false) // if P' is not yet member of any cluster
             {
                 cluster.add(kth.geomPoint);
                 kth.clustered = true;

@@ -12,20 +12,26 @@ class Plot
 
     private static final int JUDGEMENT_GRACE_PERIOD = 3;
     private static final int JUDGEMENT_WINDOW = 5;
-    private static final int CARRYING_CAPACITY_THRESHOLD = 40;
-    private static final int TRANSIENT_THESHOLD = 10;
+    private static final int CARRYING_CAPACITY_THRESHOLD;
+    private static final int TRANSIENT_THESHOLD;
 
-    private int rasterColor;
-    private double germRate, survRate;
-    private int fecundity;
+    private final int rasterColor;
+    private final double survRate;
+    private final int fecundity;
 
     private int year;
-    private int instantiationYear;
-    private int skipYears;
+    private final int instantiationYear;
+    private final int skipYears;
     private List<Integer> historyCounts;
 
     private int population, culled;
     private double fecundityCompetitionModifier;
+
+    static 
+    {
+        CARRYING_CAPACITY_THRESHOLD = (int) (Parameters.CARRYING_CAPACITY * 0.8);
+        TRANSIENT_THESHOLD = (int) (Parameters.CARRYING_CAPACITY * 0.2);
+    }
 
     Plot(int x, int y)
     {
@@ -78,12 +84,13 @@ class Plot
     double getSurvivalProb() {
         double n = survRate * e.getEnvironmentalStochasticity() * 
                     Math.sqrt(Parameters.getAdjustment());
-        return (n > 1.0 ? 1.0 : n);
+        
+        return (n <= 1.0) ? n : 1.0;
     }
 
     int getFecundity() {
         int n = (int) (fecundity * e.getEnvironmentalStochasticity() * 
-                        Math.sqrt(Parameters.getAdjustment()) * fecundityCompetitionModifier);
+                    Math.sqrt(Parameters.getAdjustment()) * fecundityCompetitionModifier);
         return n;
     }
 

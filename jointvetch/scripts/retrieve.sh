@@ -3,7 +3,7 @@
 LOCALBASEDIR=/Users/Theodore/Documents
 REMOTEBASEDIR=/home/mcrawford
 REMOTERESULTS=/home/mcrawford/results
-RESULTSSAVEDIR=/Users/Theodore/Documents/Google_Drive/SJV_EcologicalModelling_Paper/analysis_and_validation/CC_linked_to_redness/output_data/distributed_level_CC
+RESULTSSAVEDIR=/Users/Theodore/Desktop
 SSH="ssh -p 21212 mcrawford@199.111.89.20"
 
 #while true
@@ -17,16 +17,16 @@ SSH="ssh -p 21212 mcrawford@199.111.89.20"
 		echo "Removing local temp folder"
 		rm -Rfv ./tmp
 
-		echo "Ending all processes on the server"
-		cd $LOCALBASEDIR/jointvetch/jointvetch/scripts
-		./suicide
+		# echo "Ending all processes on the server"
+		# cd $LOCALBASEDIR/jointvetch/jointvetch/scripts
+		# ./suicide.sh
 
 		echo "Unarchiving results"
 		cd $RESULTSSAVEDIR
 		tar -xvf results.tar.bz2
 		exit 0
 #	else
-		echo "Sleeping!"
-		sleep 60
+		# echo "Sleeping!"
+		# sleep 60
 #	fi
 #done

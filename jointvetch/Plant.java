@@ -23,9 +23,9 @@ class Plant implements Steppable
     private HoltsCreek hc;
     private Environment e;
 
-    private MasonGeometry location;
-    private int x, y;
-    private Plot myPlot;
+    private final MasonGeometry location;
+    private final int x, y;
+    private final Plot myPlot;
 
     enum LifeStage { DEAD, IMPLANTED, ADULT };
     private LifeStage stage;
@@ -35,7 +35,7 @@ class Plant implements Steppable
     /* seed drop data */
     private static final double SEED_DROP_DIST_MEAN = 0.3;
     private static final double SEED_DROP_DIST_SD = 0.25;
-    private static Gamma gammaDistro;
+    private static final Gamma gammaDistro;
 
     /* dates */
     private static final Environment.Date seedlingSurvivalDate =
@@ -69,7 +69,7 @@ class Plant implements Steppable
         y = hc.redRaster_gf.toYCoord((Point) location.getGeometry());
         
         myPlot = e.getPlot(x, y);
-        if (isFirstGen)
+        if (isFirstGen) // intial plants go straight to adulthood
         {
             myPlot.registerNewPlant();
 
@@ -131,6 +131,7 @@ class Plant implements Steppable
         }
         else
         {
+            // moreover, if the seed drops near to the waterbody edge (wider parts of the river)
             DistanceOp toEdge = new DistanceOp( hc.tidalBoundary_g, location.getGeometry() );
             if (toEdge.distance() < MAX_DISTANCE_TO_STREAM_EDGE)
             {
@@ -150,7 +151,21 @@ class Plant implements Steppable
             Coordinate seedLoc = (Coordinate) location.getGeometry().getCoordinate().clone();
             seedLoc.x += xOffset;
             seedLoc.y += yOffset;
-            MobileSeed seed = new MobileSeed(seedLoc, entryLocation); // Each seed decides whether or not it will disperse.
+
+            /* ensure that where it lands in the waterbody as well as its optional 
+             *  river entry point are inside the propensity grid */
+            int waterbody_x = hc.redRaster_gf.toXCoord(seedLoc.x);
+            int waterbody_y = hc.redRaster_gf.toYCoord(seedLoc.y);
+            int river_x = (entryLocation == null) ? 0 : hc.redRaster_gf.toXCoord(entryLocation.getCoordinate().x);
+            int river_y = (entryLocation == null) ? 0 : hc.redRaster_gf.toYCoord(entryLocation.getCoordinate().y);
+
+            if (waterbody_x < hc.gridWidth && waterbody_x >= 0 
+                && waterbody_y < hc.gridHeight && waterbody_y >= 0
+                && river_x < hc.gridWidth && river_x >= 0 
+                && river_y < hc.gridHeight && river_y >= 0) // very rare OOB exception
+            {
+                MobileSeed seed = new MobileSeed(seedLoc, entryLocation); // each seed decides whether or not it will disperse.
+            }
         }
     }
 }

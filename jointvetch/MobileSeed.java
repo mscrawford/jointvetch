@@ -88,19 +88,7 @@ class MobileSeed implements Steppable
 
             if (hc.random.nextBoolean(Parameters.HYDROCHORY_PROB) || rasterColor == hc.RIVER_RASTER_COLOR)
             {
-                int n = hc.random.nextInt(hc.seedFloatTimes.length);
-                maxFloatTime = hc.seedFloatTimes[n];
-                while (n != 0 && (maxFloatTime - hc.seedFloatTimes[n - 1]) == 0)
-                {
-                    n--;
-                }
-                if (n != 0 && (maxFloatTime - hc.seedFloatTimes[n - 1]) > 6)
-                {
-                    /* correct nightly accumulation of dead seeds */
-                    maxFloatTime = hc.random.nextInt(hc.seedFloatTimes[n]
-                         - hc.seedFloatTimes[n - 1])
-                            + hc.seedFloatTimes[n - 1];
-                }
+                pickMaxFloatTime(); // changes a global variable
 
                 if (Parameters.hydrochoryBool == true)
                 {
@@ -125,6 +113,22 @@ class MobileSeed implements Steppable
             else implant();
         }
         else implant(); // We're implanting right where we initially dropped.
+    }
+
+    private void pickMaxFloatTime()
+    {
+        int n = hc.random.nextInt(hc.seedFloatTimes.length);
+        maxFloatTime = hc.seedFloatTimes[n];
+        while (n != 0 && (maxFloatTime - hc.seedFloatTimes[n - 1]) == 0)
+        {
+            n--;
+        }
+        if (n != 0 && (maxFloatTime - hc.seedFloatTimes[n - 1]) > 6)
+        {
+            /* correct nightly accumulation of dead seeds */
+            maxFloatTime = hc.random.nextInt(hc.seedFloatTimes[n] - hc.seedFloatTimes[n - 1])
+                            + hc.seedFloatTimes[n - 1];
+        }
     }
 
     /**
@@ -168,39 +172,43 @@ class MobileSeed implements Steppable
         else if (floatTimer <= maxFloatTime) // keep on hydrochorying
         {
             double distanceThisHour = tidalRateFunction( hc.schedule.getTime() );
-            double distanceTraveled = 0;
+            double distanceTraveledThisHour = 0; // an absolute value
             final double SCALE = 1000000.0;
             double distanceToTravel = (Math.round( Math.abs(distanceThisHour)*SCALE )/SCALE)-1; // why -1? refresh this
 
-            while (distanceTraveled < distanceToTravel && deadEnd == false) // do we want dead ends to work like this?
+            /* because each edge is a different length and the seed must travel a predetermined distance each hour,
+             *   each seed will continue moving up/down a given edge until it reaches a terminus. Then it will pick
+             *   a new edge (one that travels in the same direction) and transition onto it. */
+            while (distanceTraveledThisHour < distanceToTravel && deadEnd == false)
             {
-                if (!arrivedAtJunction(distanceThisHour))
+                int direction = (distanceThisHour >= 0) ? 1 : -1; // upstream or downstream
+                if (!arrivedAtJunction(direction))
                 {
                     double myStartIndex = currentIndex;
 
-                    // going from end -> start
+                    // going from end -> start (upstream)
                     if (distanceThisHour < 0)
                     {
-                        currentIndex = currentIndex + (distanceThisHour + distanceTraveled); // (-) + (+)
+                        currentIndex = currentIndex + (distanceThisHour + distanceTraveledThisHour); // (-) + (+)
                         if (currentIndex < startIndex) {
                             currentIndex = startIndex;
                         }
                     }
 
-                    // going from start -> end
+                    // going from start -> end (downstream)
                     else if (distanceThisHour > 0)
                     {
-                        currentIndex = currentIndex + (distanceThisHour - distanceTraveled);
+                        currentIndex = currentIndex + (distanceThisHour - distanceTraveledThisHour);
                         if (currentIndex > endIndex) {
                             currentIndex = endIndex;
                         }
                     }
 
-                    distanceTraveled = distanceTraveled + Math.abs(currentIndex-myStartIndex);
+                    distanceTraveledThisHour = distanceTraveledThisHour + Math.abs(currentIndex-myStartIndex);
                 }
                 else
                 {
-                    findNewPath();
+                    findNewPath(direction);
                 }
                 Coordinate currentPos = river_lil.extractPoint(currentIndex);
                 pmt.setCoordinate(currentPos);
@@ -211,6 +219,7 @@ class MobileSeed implements Steppable
             floatTimer++;
             hc.schedule.scheduleOnce(hc.schedule.getTime() + 1, this);
         }
+        // else the seed is now dead.
     }
 
     /**
@@ -222,7 +231,7 @@ class MobileSeed implements Steppable
         int x = hc.redRaster_gf.toXCoord((Point) location.getGeometry());
         int y = hc.redRaster_gf.toYCoord((Point) location.getGeometry());
 
-        if (x < hc.gridWidth && x > 0 && y < hc.gridHeight && y > 0) // very rare OOB exception
+        if (x < hc.gridWidth && x >= 0 && y < hc.gridHeight && y >= 0) // very rare OOB exception
         {
             myPlot = e.getPlot(x, y);
 
@@ -236,39 +245,62 @@ class MobileSeed implements Steppable
     }
 
     /**
+     * If the direction is downstream (negative) and the seed is at the end of an edge, it should continue to another edge.
+     * Likewise a seed could go upstream and need to continue on when it gets to the "beginning" of an edge. Put another way,
+     * edges inherently go downstream.
      * @return true if at junction, false if not.
      * @author Michael Crawford
      */
-    private boolean arrivedAtJunction(double dist)
+    private boolean arrivedAtJunction(double direction)
     {
-        if ( (dist > 0 && currentIndex == endIndex) || (dist < 0 && currentIndex == startIndex) )
+        if ( (direction > 0 && currentIndex == endIndex) || (direction < 0 && currentIndex == startIndex) )
         {
             return true;
-        }
+        }   
         return false;
     }
 
     /**
      * @author Michael Crawford
      */
-    private void findNewPath()
+    private void findNewPath(int direction)
     {
-        // find all the adjacent junctions
+        // find the "node" we're on
         Node currentJunction = hc.riverNetwork.findNode( location.getGeometry().getCoordinate() );
 
         if (currentJunction != null)
         {
-            DirectedEdgeStar directedEdgeStar = currentJunction.getOutEdges();
-            Object[] edges = directedEdgeStar.getEdges().toArray();
+            DirectedEdgeStar directedEdgeStar = currentJunction.getOutEdges(); // all of its directed edges
+            Bag edges = new Bag(directedEdgeStar.getEdges().toArray());
+            Bag culledLineStrings = new Bag(); // paths the seed could take
 
-            if (edges.length > 1)
+            /* the seed can only float upstream if the direction is negative and downstream if positive,
+                    so we must only use a subset when setting up hydrochory. (Go down the main stream rather than 
+                    another tributary.) */
+            for (int i = 0; i < edges.size(); i++)
             {
-                int i = hc.random.nextInt(edges.length);
-                GeomPlanarGraphDirectedEdge directedEdge = (GeomPlanarGraphDirectedEdge) edges[i];
+                GeomPlanarGraphDirectedEdge directedEdge = (GeomPlanarGraphDirectedEdge) edges.get(i);
                 GeomPlanarGraphEdge edge = (GeomPlanarGraphEdge) directedEdge.getEdge();
 
-                // and start moving along it
                 LineString newRoute = edge.getLine();
+                Point startPoint = newRoute.getStartPoint();
+                Point endPoint = newRoute.getEndPoint();
+
+                if (direction > 0 && startPoint.equals(location.getGeometry())) // paths going downstream
+                {
+                    culledLineStrings.add(newRoute);
+                }
+                else if (direction < 0 && endPoint.equals(location.getGeometry())) // tributaries going upstream
+                {
+                    culledLineStrings.add(newRoute);
+                }
+            }
+
+            if (culledLineStrings.size() > 0)
+            {
+                // pick an edge at random and start moving along it
+                int r = hc.random.nextInt(culledLineStrings.size());
+                LineString newRoute = (LineString) culledLineStrings.get(r);
                 Point startPoint = newRoute.getStartPoint();
                 Point endPoint = newRoute.getEndPoint();
 

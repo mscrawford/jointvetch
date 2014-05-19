@@ -29,13 +29,13 @@ class Environment implements Steppable
     private static final int HOURS_PER_DAY = 24;
     private static final int DAYS_PER_YEAR = 365;
 
-    private int year = 0;       
+    private int year = 0;
     private Date today;
     private Date lastDate = new Date(Month.JAN, 1);
     private static final Date newYearDate = new Date(Month.DEC, 31);
 
     /* environmental stochasticity */
-    private double thisYearsEnvironmentalStochasticity;
+    private double currentEnvStoch;
 
     /* records */
     private List<Integer> populationHistory;
@@ -43,7 +43,8 @@ class Environment implements Steppable
 
     private static final boolean VERBOSE = false;
     private static final String coordPath = 
-        "/Users/Theodore/Documents/Google_Drive/SJV_EcologicalModelling_Paper/analysis_and_validation/vital_rate_distro_derivation/";
+        // "/Users/Theodore/Documents/Google_Drive/SJV_EcologicalModelling_Paper/analysis_and_validation/vital_rate_distro_derivation/";
+        "/Users/Theodore/Desktop/";
 
     static synchronized Environment instance()
     {
@@ -61,8 +62,8 @@ class Environment implements Steppable
         populationHistory = new ArrayList<Integer>();
         environmentalHistory = new ArrayList<Double>();
         
-        thisYearsEnvironmentalStochasticity = generateEnvironmentalStochasticity();
-        environmentalHistory.add(thisYearsEnvironmentalStochasticity);
+        currentEnvStoch = generateEnvironmentalStochasticity();
+        environmentalHistory.add(currentEnvStoch);
     }
 
     /* ------------------------
@@ -85,10 +86,10 @@ class Environment implements Steppable
                 System.exit(0);
             }
 
-            // printStatistics();
+            if (VERBOSE) printStatistics();
 
-            thisYearsEnvironmentalStochasticity = generateEnvironmentalStochasticity();
-            environmentalHistory.add(thisYearsEnvironmentalStochasticity);
+            currentEnvStoch = generateEnvironmentalStochasticity();
+            environmentalHistory.add(currentEnvStoch);
             
             hc.reproducingPlants_vf.clear();
             hc.schedule.scheduleOnce(getClockTimeForNextNewYearDate(), this);
@@ -108,10 +109,7 @@ class Environment implements Steppable
         return Math.exp( (u*Math.log(stochMax)) + ((1 - u) * Math.log(stochMin)) );
     }
 
-    double getEnvironmentalStochasticity()
-    {
-        return thisYearsEnvironmentalStochasticity;
-    }
+    double getEnvironmentalStochasticity() { return currentEnvStoch; }
 
 /* ------------------------------
  * Dealing with plots
@@ -122,7 +120,7 @@ class Environment implements Steppable
         if (plot == null)
         {
             plot = new Plot(x, y);
-            ((ObjectGrid2D) hc.plotGrid_gf.getGrid()).set(x, y, plot);
+            ( (ObjectGrid2D) hc.plotGrid_gf.getGrid() ).set(x, y, plot);
         }
         return plot;
     }
@@ -137,46 +135,11 @@ class Environment implements Steppable
         }
     }
 
-    int getYear() {
-        return year;
-    }
+    int getYear() { return year; }
 
 /* ------------------------
  * Printing information
  * ------------------------ */
-    private void printLowestValueOfThrivingPopulationsCounts()
-    {
-        Bag plots = (Bag) ((ObjectGrid2D) hc.plotGrid_gf.getGrid()).elements();
-        List<Integer> printList = new ArrayList<Integer>();
-        for (int i = 0, s = plots.size(); i < s; i++)
-        {
-            Plot p = (Plot) plots.get(i);
-            List<Integer> hc = p.getHistoryCounts();
-
-            // System.out.println(hc.toString());
-            // System.out.println(p.getColor());
-
-            int lowestAfterFifty = Integer.MAX_VALUE;
-            boolean afterAtLeastOneFifty = false;
-            for (int j = 0, t = hc.size(); j < t; j++)
-            {
-                if (afterAtLeastOneFifty == false && hc.get(j) >= 50)
-                {
-                    afterAtLeastOneFifty = true; // you've found at least one 50
-                }
-                else if (afterAtLeastOneFifty == true && hc.get(j) < lowestAfterFifty)
-                {
-                    lowestAfterFifty = hc.get(j);
-                }
-            }
-            if (lowestAfterFifty != Integer.MAX_VALUE)
-            {
-                printList.add(lowestAfterFifty);
-            }
-        }
-        System.out.println(printList.toString());
-    }
-
     private void printStatistics()
     {
         double[] popHistArr = new double[ populationHistory.size() ];
@@ -198,29 +161,47 @@ class Environment implements Steppable
             else throw new AssertionError();
         }
 
-        Bag clusters = runClusteringAnalysis();
-        int numClusters = clusters.size();
-        double[] clusterArr = new double[ numClusters ];
-        for (int i = 0, s = numClusters; i < s; i++)
-            clusterArr[i] = (double) ( (Integer) clusters.get(i) ).intValue();
+        int finalPopulation = hc.reproducingPlants_vf.getGeometries().size();
+        boolean noClusteringAnalysis = (finalPopulation > Parameters.DBSCAN_CUTOFF) ? true : false;
+        String numClustersStr, clusterPopMeanStr, clusterPopSDDev;
+        if (noClusteringAnalysis)
+        {
+            numClustersStr = "NA";
+            clusterPopMeanStr = "NA";
+            clusterPopSDDev = "NA";
+        }
+        else
+        {
+            Bag clusters = runClusteringAnalysis();
+            int numClusters = clusters.size();
+            double[] clusterArr = new double[ numClusters ];
+            for (int i = 0, s = numClusters; i < s; i++)
+                clusterArr[i] = (double) ( (Integer) clusters.get(i) ).intValue();
 
-        System.out.println(
-            Parameters.stochMax + " " +
-            Parameters.hydrochoryBool + " " +
-            Parameters.implantationRate + " " +
-            Parameters.ADJUSTMENT_FACTOR + " " +
-            year + " " +
-            d + " " + // dead
-            tr + " " + // transient
-            m + " " + // mediocre
-            t + " " + // thriving
-            numClusters + " " + 
-            (int) StatUtils.mean(clusterArr) + " " +
-            hc.reproducingPlants_vf.getGeometries().size() + " " +
-            (int) StatUtils.max(popHistArr) + " " + 
-            (int) StatUtils.min(popHistArr) + " " +
-            (int) StatUtils.mean(popHistArr) + " " + 
-            (int) Math.sqrt(StatUtils.populationVariance(popHistArr)));
+            numClustersStr = String.valueOf(numClusters);
+            clusterPopMeanStr = String.valueOf((int) StatUtils.mean(clusterArr));
+            clusterPopSDDev = String.valueOf((int) Math.sqrt(StatUtils.populationVariance(clusterArr)));
+        }
+
+        StringBuilder s = new StringBuilder();
+        s.append(Parameters.stochMax + " ");
+        s.append(Parameters.hydrochoryBool + " ");
+        s.append(Parameters.implantationRate + " ");
+        s.append(Parameters.adjustmentFactor + " ");
+        s.append(year + " ");
+        s.append(d + " "); // dead
+        s.append(tr + " "); // transient
+        s.append(m + " "); // mediocre
+        s.append(t + " "); // thriving
+        s.append(numClustersStr + " "); 
+        s.append(clusterPopMeanStr + " ");
+        s.append(clusterPopSDDev + " "); // sddev of population clusters
+        s.append(finalPopulation + " ");
+        s.append((int) StatUtils.max(popHistArr) + " "); 
+        s.append((int) StatUtils.min(popHistArr) + " ");
+        s.append((int) StatUtils.mean(popHistArr) + " ");
+        s.append((int) Math.sqrt(StatUtils.populationVariance(popHistArr))); // sddev of population history
+        System.out.println(s);
 
         if (VERBOSE)
         {

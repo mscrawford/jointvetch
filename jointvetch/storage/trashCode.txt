@@ -1,0 +1,32 @@
+private void printLowestValueOfThrivingPopulationsCounts()
+{
+    Bag plots = (Bag) ((ObjectGrid2D) hc.plotGrid_gf.getGrid()).elements();
+    List<Integer> printList = new ArrayList<Integer>();
+    for (int i = 0, s = plots.size(); i < s; i++)
+    {
+        Plot p = (Plot) plots.get(i);
+        List<Integer> hc = p.getHistoryCounts();
+
+        // System.out.println(hc.toString());
+        // System.out.println(p.getColor());
+
+        int lowestAfterFifty = Integer.MAX_VALUE;
+        boolean afterAtLeastOneFifty = false;
+        for (int j = 0, t = hc.size(); j < t; j++)
+        {
+            if (afterAtLeastOneFifty == false && hc.get(j) >= 50)
+            {
+                afterAtLeastOneFifty = true; // you've found at least one 50
+            }
+            else if (afterAtLeastOneFifty == true && hc.get(j) < lowestAfterFifty)
+            {
+                lowestAfterFifty = hc.get(j);
+            }
+        }
+        if (lowestAfterFifty != Integer.MAX_VALUE)
+        {
+            printList.add(lowestAfterFifty);
+        }
+    }
+    System.out.println(printList.toString());
+}

@@ -41,10 +41,10 @@ class Environment implements Steppable
     private List<Integer> populationHistory;
     private List<Double> environmentalHistory;
 
-    private static final boolean VERBOSE = false;
+    static boolean VERBOSE;
     private static final String coordPath = 
         // "/Users/Theodore/Documents/Google_Drive/SJV_EcologicalModelling_Paper/analysis_and_validation/vital_rate_distro_derivation/";
-        "/Users/Theodore/Desktop/";
+        "/tmp/";
 
     static synchronized Environment instance()
     {
@@ -142,6 +142,7 @@ class Environment implements Steppable
  * ------------------------ */
     private void printStatistics()
     {
+        System.out.println("Year " + year + ":");
         double[] popHistArr = new double[ populationHistory.size() ];
         for (int i = 0, s = populationHistory.size(); i < s; i++)
             popHistArr[i] = (double) populationHistory.get(i);

@@ -92,12 +92,24 @@ class HoltsCreek extends SimState
         hydrochoryBool = Boolean.parseBoolean(args[1]);
         implantationRate = Double.parseDouble(args[2]);
         adjustmentFactor = Double.parseDouble(args[3]);
+        Environment.VERBOSE = false;
+        for (int i=0; i<args.length; i++) {
+            if (args[i].equals("-verbose")) {
+                Environment.VERBOSE = true;
+            }
+        }
 
         assert (stochMax >= 1.0) : "Stochasticity must be 1 or greater.";
     }
 
     public static void main(String[] args) throws Exception
     {
+        if (args.length < 4) {
+            System.err.println(
+                "Usage: HoltsCreek stochMax hydrochoryBool implantationRate" +
+                " adjustmentFactor [-verbose] [-quiet] [-seed seed].");
+            System.exit(1);
+        }
         doLoop(new MakesSimState()
         {
             public SimState newInstance(long seed, String[] args)

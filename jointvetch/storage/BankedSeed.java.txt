@@ -23,7 +23,6 @@ public class BankedSeed implements Steppable
 public static int bankedSeedsAlive = 0;
 
 	private final MasonGeometry location;
-	private final int x, y;
 	private final Plot myPlot;
 
 	private static final Environment.Date bankedSeedExitDate =
@@ -35,8 +34,8 @@ public static int bankedSeedsAlive = 0;
 		e = Environment.instance();
 
 		this.location = location;
-		x = hc.colorRaster_GridField.toXCoord((Point) location.getGeometry());
-		y = hc.colorRaster_GridField.toYCoord((Point) location.getGeometry());
+		int x = hc.colorRaster_GridField.toXCoord((Point) location.getGeometry());
+		int y = hc.colorRaster_GridField.toYCoord((Point) location.getGeometry());
 
 		bankedSeedsAlive++;
 		myPlot = e.getPlot(x, y);

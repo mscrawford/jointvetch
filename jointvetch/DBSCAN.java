@@ -1,9 +1,7 @@
 package jointvetch;
 
-import java.util.*;
 import sim.util.Bag;
 import sim.util.geo.MasonGeometry;
-import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.operation.distance.DistanceOp;
 
 class DBSCAN
@@ -44,7 +42,7 @@ class DBSCAN
         for (int i = 0, s = database.size(); i < s; i++)
         {
             DBObj current = (DBObj) database.get(i);
-            if (current.visited == false)
+            if (!current.visited)
             {
                 current.visited = true;
                 Bag neighborPts = new Bag(regionQuery(current));
@@ -63,7 +61,7 @@ class DBSCAN
         for (int i = 0, s = database.size(); i < s; i++)
         {
             DBObj cur = (DBObj) database.get(i);
-            if (cur.noise == true)
+            if (cur.noise)
             {
                 Bag noiseBag = new Bag();
                 noiseBag.add(cur.geomPoint);
@@ -80,16 +78,16 @@ class DBSCAN
         for (int k = 0, s = neighborPts.size(); k < s; k++) // for each point P' in NeighborPts
         {
             DBObj kth = (DBObj) neighborPts.get(k);
-            if (kth.visited == false) // if P' is not visited
+            if (!kth.visited) // if P' is not visited
             {
                 kth.visited = true; // mark P' as visited
                 Bag neighborPtsPrime = regionQuery(kth); // NeighborPts' = regionQuery(P', eps)
-                if (neighborPtsPrime.size() >= minPts) // if sizeof(NeighborPts') >= MinPts
+                if (neighborPtsPrime.size() >= minPts) // if size of NeighborPts' >= MinPts
                 {
                     neighborPts.addAll(neighborPtsPrime); // NeighborPts = NeighborPts joined with NeighborPts'
                 }
             }
-            if (kth.clustered == false) // if P' is not yet member of any cluster
+            if (!kth.clustered) // if P' is not yet member of any cluster
             {
                 cluster.add(kth.geomPoint);
                 kth.clustered = true;

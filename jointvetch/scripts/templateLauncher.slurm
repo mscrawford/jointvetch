@@ -15,16 +15,17 @@
 #
 #SBATCH -J Parametric          # Job name
 #SBATCH -N 1                  # Total number of nodes (16 cores/node)
-#SBATCH -n 1                  # Total number of tasks
+#SBATCH -n 4                  # Total number of tasks
 #SBATCH -p normal              # Queue name
 #SBATCH -o Parametric.o%j      # Name of stdout output file (%j expands to jobid)
-#SBATCH -t 23:50:00            # Run time (hh:mm:ss)
+#SBATCH -t 47:55:00            # Run time (hh:mm:ss)
 #SBATCH --mail-user=mcrawfor@umw.edu # Email address to send to
 #SBATCH --mail-type=ALL # Send e-mail to us when the job starts, finishes, and if it fails
 #      <------------ Account String ------------>
 # <--- (Use this ONLY if you have MULTIPLE accounts) --->
 #SBATCH -A TG-DEB140014
 #------------------------------------------------------
+setenv _JAVA_OPTIONS "-Xmx6553m"
 
 module load launcher
 setenv EXECUTABLE     $TACC_LAUNCHER_DIR/init_launcher 

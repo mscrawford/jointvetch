@@ -15,7 +15,7 @@ rm *.class &&
 rm runs.sh"
 
 echo "Making local temp directory."
-cd $LOCALBASEDIR/jointvetch/jointvetch
+cd $LOCALBASEDIR/jointvetch/
 mkdir tmp
 
 echo "Compiling java code to temp directory"
@@ -26,7 +26,7 @@ cd $LOCALBASEDIR/jointvetch/jointvetch/scripts
 python runscript.py
 
 echo "scp-ing java files and jobs to server"
-cd $LOCALBASEDIR/jointvetch/jointvetch
+cd $LOCALBASEDIR/jointvetch
 scp -P 21212 ./tmp/jointvetch/*.class mcrawford@199.111.89.20:$REMOTEBASEDIR/jointvetch/jointvetch
 scp -P 21212 ./tmp/runs.sh mcrawford@199.111.89.20:$REMOTEBASEDIR/jointvetch/jointvetch
 

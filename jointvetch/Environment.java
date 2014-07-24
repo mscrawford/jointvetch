@@ -7,7 +7,6 @@ import sim.engine.Steppable;
 import sim.util.*;
 import sim.util.geo.MasonGeometry;
 import sim.field.grid.ObjectGrid2D;
-import com.vividsolutions.jts.geom.*;
 import org.apache.commons.math3.stat.StatUtils;
 
 /**
@@ -23,14 +22,13 @@ class Environment implements Steppable
     private HoltsCreek hc;
 
     /* timekeeping */
-    enum Month { JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC };
+    enum Month { JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC }
     private static final int DAYS[] = { 31,28,31,30,31,30,31,31,30,31,30,31 };
     private static final int CUM_DAYS[] = { 31,59,90,120,151,181,212,243,273,304,334,365 };
     private static final int HOURS_PER_DAY = 24;
     private static final int DAYS_PER_YEAR = 365;
 
     private int year = 0;
-    private Date today;
     private Date lastDate = new Date(Month.JAN, 1);
     private static final Date newYearDate = new Date(Month.DEC, 31);
 
@@ -71,7 +69,7 @@ class Environment implements Steppable
      * ------------------------ */
     public void step(SimState state)
     {
-        today = getDateForTime(hc.schedule.getTime());
+        Date today = getDateForTime(hc.schedule.getTime());
 
         if (today.equals(newYearDate))
         {
@@ -127,7 +125,7 @@ class Environment implements Steppable
 
     private void notifyEndOfYearForPlots()
     {
-        Bag plots = (Bag) ( (ObjectGrid2D) hc.plotGrid_gf.getGrid() ).elements();
+        Bag plots = ( (ObjectGrid2D) hc.plotGrid_gf.getGrid() ).elements();
         for (int i = 0, s = plots.size(); i < s; i++)
         { 
             Plot p = (Plot) plots.get(i);
@@ -135,7 +133,9 @@ class Environment implements Steppable
         }
     }
 
-    int getYear() { return year; }
+    int getYear() {
+        return year;
+    }
 
 /* ------------------------
  * Printing information
@@ -149,7 +149,7 @@ class Environment implements Steppable
 
         int u=0, t=0, m=0, tr=0, d=0;
 
-        Bag plots = (Bag) ( (ObjectGrid2D) hc.plotGrid_gf.getGrid() ).elements();
+        Bag plots = ( (ObjectGrid2D) hc.plotGrid_gf.getGrid() ).elements();
         for (int i = 0, s = plots.size(); i < s; i++)
         {
             Plot p = (Plot) plots.get(i);
@@ -163,7 +163,7 @@ class Environment implements Steppable
         }
 
         int finalPopulation = hc.reproducingPlants_vf.getGeometries().size();
-        boolean noClusteringAnalysis = (finalPopulation > Parameters.DBSCAN_CUTOFF) ? true : false;
+        boolean noClusteringAnalysis = finalPopulation > Parameters.DBSCAN_CUTOFF;
         String numClustersStr, clusterPopMeanStr, clusterPopSDDev;
         if (noClusteringAnalysis)
         {
@@ -176,8 +176,8 @@ class Environment implements Steppable
             Bag clusters = runClusteringAnalysis();
             int numClusters = clusters.size();
             double[] clusterArr = new double[ numClusters ];
-            for (int i = 0, s = numClusters; i < s; i++)
-                clusterArr[i] = (double) ( (Integer) clusters.get(i) ).intValue();
+            for (int i = 0; i < numClusters; i++)
+                clusterArr[i] = (double) ((Integer) clusters.get(i));
 
             numClustersStr = String.valueOf(numClusters);
             clusterPopMeanStr = String.valueOf((int) StatUtils.mean(clusterArr));
@@ -185,6 +185,7 @@ class Environment implements Steppable
         }
 
         StringBuilder s = new StringBuilder();
+        s.append(hc.seed + " ");
         s.append(Parameters.stochMax + " ");
         s.append(Parameters.hydrochoryBool + " ");
         s.append(Parameters.implantationRate + " ");
@@ -196,12 +197,12 @@ class Environment implements Steppable
         s.append(t + " "); // thriving
         s.append(numClustersStr + " "); 
         s.append(clusterPopMeanStr + " ");
-        s.append(clusterPopSDDev + " "); // sddev of population clusters
+        s.append(clusterPopSDDev + " "); // stdev of population clusters
         s.append(finalPopulation + " ");
         s.append((int) StatUtils.max(popHistArr) + " "); 
         s.append((int) StatUtils.min(popHistArr) + " ");
         s.append((int) StatUtils.mean(popHistArr) + " ");
-        s.append((int) Math.sqrt(StatUtils.populationVariance(popHistArr))); // sddev of population history
+        s.append((int) Math.sqrt(StatUtils.populationVariance(popHistArr))); // stdev of population history
         System.out.println(s);
 
         if (VERBOSE)
@@ -288,28 +289,12 @@ class Environment implements Steppable
         
         boolean equals(Date d)
         {
-            if (d.month == month && d.dayWithinMonth == dayWithinMonth) {
-                return true;
-            }
-            return false;
+            return (d.month == month && d.dayWithinMonth == dayWithinMonth);
         }
     }
     
     double getClockTimeForNextNewYearDate() {
         return getClockTimeForNext(Month.DEC, 31);
-    }
-    
-    void printDateIfNew()
-    {
-        double time = hc.schedule.getTime();
-        Date date = getDateForTime(time);
-        if (!date.equals(lastDate))
-        {
-            lastDate = date;
-            System.out.println("Time: " + date.month + " " +
-                date.dayWithinMonth + ", " +
-                (2012 + (int) (time / (HOURS_PER_DAY * DAYS_PER_YEAR))));
-        }
     }
 
     private static Date getDateForTime(double time) 

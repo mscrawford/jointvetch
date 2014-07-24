@@ -1,7 +1,5 @@
 package jointvetch;
 
-import java.util.*;
-import sim.util.*;
 import sim.engine.*;
 import sim.util.distribution.Gamma;
 import sim.util.geo.MasonGeometry;
@@ -24,10 +22,9 @@ class Plant implements Steppable
     private Environment e;
 
     private final MasonGeometry location;
-    private final int x, y;
     private final Plot myPlot;
 
-    enum LifeStage { DEAD, IMPLANTED, ADULT };
+    enum LifeStage { DEAD, IMPLANTED, ADULT }
     private LifeStage stage;
 
     private static final double MAX_DISTANCE_TO_STREAM_EDGE = 4.0; /* meters */
@@ -65,11 +62,11 @@ class Plant implements Steppable
         e = Environment.instance();
 
         location = seed_location;
-        x = hc.redRaster_gf.toXCoord((Point) location.getGeometry());
-        y = hc.redRaster_gf.toYCoord((Point) location.getGeometry());
+        int x = hc.redRaster_gf.toXCoord((Point) location.getGeometry());
+        int y = hc.redRaster_gf.toYCoord((Point) location.getGeometry());
         
         myPlot = e.getPlot(x, y);
-        if (isFirstGen) // intial plants go straight to adulthood
+        if (isFirstGen) // initial plants go straight to adulthood
         {
             myPlot.registerNewPlant();
 

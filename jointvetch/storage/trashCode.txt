@@ -1,3 +1,6 @@
+/**
+ * In Environment.java
+ */
 private void printLowestValueOfThrivingPopulationsCounts()
 {
     Bag plots = (Bag) ((ObjectGrid2D) hc.plotGrid_gf.getGrid()).elements();
@@ -29,4 +32,20 @@ private void printLowestValueOfThrivingPopulationsCounts()
         }
     }
     System.out.println(printList.toString());
+}
+
+
+/**
+ * In Environment.java
+ */
+void printDateIfNew()
+{
+    double time = hc.schedule.getTime();
+    Date date = getDateForTime(time);
+    if (!date.equals(lastDate))
+    {
+        lastDate = date;
+        System.out.println("Time: " + date.month + " " + date.dayWithinMonth + ", " +
+            (2012 + (int) (time / (HOURS_PER_DAY * DAYS_PER_YEAR))));
+    }
 }

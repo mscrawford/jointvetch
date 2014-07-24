@@ -1,7 +1,5 @@
 package jointvetch;
 
-import java.util.*;
-import java.io.*;
 import sim.engine.SimState;
 import sim.engine.Steppable;
 import sim.util.geo.*;
@@ -16,8 +14,8 @@ import com.vividsolutions.jts.operation.distance.DistanceOp;
 
 /**
  * A representation of a joint-vetch seed. Of importance is the logic pertaining to hydrochory, or seed
- * travel via water. In this area, the water movement is heavility influenced by the tides. Each seed, at the
- * end of this object's exhistence, will either implant, bank, or die.
+ * travel via water. In this area, the water movement is heavily influenced by the tides. Each seed, at the
+ * end of this object's existence, will either implant, bank, or die.
  * @author Michael Crawford
  */
 class MobileSeed implements Steppable
@@ -26,7 +24,6 @@ class MobileSeed implements Steppable
     private Environment e;
 
     private MasonGeometry location;
-    private Plot myPlot;
 
     /* hydrochory parameters */
     private static final int TIDAL_PERIOD = 13; /* hours */
@@ -45,7 +42,6 @@ class MobileSeed implements Steppable
      * @param entryLocation The LocationGeometry that holds the point on the LineSegment that represents
      * where the seed will begin it's hydrochory journey down the river. It also holds the LineSegment itself.
      * This is useful for our initial step to begin hydrochory.
-     * @author Michael Crawford
      */
     MobileSeed(Coordinate dropLocation, GeometryLocation entryLocation)
     {
@@ -60,10 +56,8 @@ class MobileSeed implements Steppable
 
     /**
      * Step will only be called if the seed is floating.
-     * @author Michael Crawford
      */
-    public void step(SimState state)
-    {
+    public void step(SimState state) {
         hydrochory();
     }
 
@@ -73,7 +67,6 @@ class MobileSeed implements Steppable
      * this method transfers the geometry into the river and schedules the seed.
      * If it does not enter the river, the seed implants. When the seed implants,
      * it will either be making a new object (BankedSeed or Plant) or die (not reschedule itself).
-     * @author Michael Crawford
      */
     private void drop(GeometryLocation entryLocation)
     {
@@ -86,11 +79,11 @@ class MobileSeed implements Steppable
             int y = hc.redRaster_gf.toYCoord((Point) location.getGeometry());
             int rasterColor = ((IntGrid2D) hc.redRaster_gf.getGrid()).get(x, y);
 
-            if (hc.random.nextBoolean(Parameters.HYDROCHORY_PROB) || rasterColor == hc.RIVER_RASTER_COLOR)
+            if (hc.random.nextBoolean(Parameters.HYDROCHORY_PROB) || rasterColor == HoltsCreek.RIVER_RASTER_COLOR)
             {
                 pickMaxFloatTime(); // changes a global variable
 
-                if (Parameters.hydrochoryBool == true)
+                if (Parameters.hydrochoryBool)
                 {
                     // drop the seed into the closestRiverString segment, at the closestRiverPoint point.
                     pmt.setCoordinate(entryPoint.getCoordinate());
@@ -126,14 +119,12 @@ class MobileSeed implements Steppable
         if (n != 0 && (maxFloatTime - hc.seedFloatTimes[n - 1]) > 6)
         {
             /* correct nightly accumulation of dead seeds */
-            maxFloatTime = hc.random.nextInt(hc.seedFloatTimes[n] - hc.seedFloatTimes[n - 1])
-                            + hc.seedFloatTimes[n - 1];
+            maxFloatTime = hc.random.nextInt(hc.seedFloatTimes[n] - hc.seedFloatTimes[n - 1]) + hc.seedFloatTimes[n - 1];
         }
     }
 
     /**
      * An exciting description of hydrochory!
-     * @author Michael Crawford
      */
     private void hydrochory()
     {
@@ -179,7 +170,7 @@ class MobileSeed implements Steppable
             /* because each edge is a different length and the seed must travel a predetermined distance each hour,
              *   each seed will continue moving up/down a given edge until it reaches a terminus. Then it will pick
              *   a new edge (one that travels in the same direction) and transition onto it. */
-            while (distanceTraveledThisHour < distanceToTravel && deadEnd == false)
+            while (distanceTraveledThisHour < distanceToTravel && !deadEnd)
             {
                 int direction = (distanceThisHour >= 0) ? 1 : -1; // upstream or downstream
                 if (!arrivedAtJunction(direction))
@@ -224,7 +215,6 @@ class MobileSeed implements Steppable
 
     /**
      * The seed has successfully implanted in the soil.
-     * @author Michael Crawford
      */
     private void implant()
     {
@@ -233,8 +223,6 @@ class MobileSeed implements Steppable
 
         if (x < hc.gridWidth && x >= 0 && y < hc.gridHeight && y >= 0) // very rare OOB exception
         {
-            myPlot = e.getPlot(x, y);
-
             if (hc.random.nextBoolean(Parameters.WINTER_SURVIVAL_RATE))
             {
                 Plant p = new Plant(location, false);
@@ -249,20 +237,12 @@ class MobileSeed implements Steppable
      * Likewise a seed could go upstream and need to continue on when it gets to the "beginning" of an edge. Put another way,
      * edges inherently go downstream.
      * @return true if at junction, false if not.
-     * @author Michael Crawford
      */
     private boolean arrivedAtJunction(double direction)
     {
-        if ( (direction > 0 && currentIndex == endIndex) || (direction < 0 && currentIndex == startIndex) )
-        {
-            return true;
-        }   
-        return false;
+        return (direction > 0 && currentIndex == endIndex) || (direction < 0 && currentIndex == startIndex);
     }
 
-    /**
-     * @author Michael Crawford
-     */
     private void findNewPath(int direction)
     {
         // find the "node" we're on
@@ -328,7 +308,6 @@ class MobileSeed implements Steppable
     * it is the current river portion that the seed is floating down.
     * @param riverPoint The point on the river segment that represents the seed. This is also
     * initially passed inside a GeometryLocation.
-    * @author Michael Crawford
     */
     private void setupHydrochory(LineString riverString, Point riverPoint)
     {
@@ -343,7 +322,6 @@ class MobileSeed implements Steppable
      * we can see how far the seed went in one hour. See methods for details.
      * @param time time(t) the seed has been moving
      * @return The rate at time(t) the seed is moving.
-     * @author Michael Crawford
      */
     private double tidalRateFunction(double time) {
         return 769.5 * Math.sin( time*Math.PI/TIDAL_PERIOD ) + 13.5;

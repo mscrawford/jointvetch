@@ -82,8 +82,7 @@ class Plot
     }
 
     double getSurvivalProb() {
-        double n = survRate * e.getEnvironmentalStochasticity() * 
-                    Math.sqrt(Parameters.getAdjustment());
+        double n = survRate * e.getEnvironmentalStochasticity() * Math.sqrt(Parameters.getAdjustment());
         
         return (n <= 1.0) ? n : 1.0;
     }

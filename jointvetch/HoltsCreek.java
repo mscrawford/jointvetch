@@ -14,7 +14,6 @@ import sim.field.geo.GeomGridField;
 import sim.field.geo.GeomGridField.GridDataType;
 import sim.field.grid.ObjectGrid2D;
 import com.vividsolutions.jts.geom.*;
-import com.vividsolutions.jts.linearref.LengthIndexedLine;
 
 /**
  * @author Michael Crawford
@@ -22,6 +21,7 @@ import com.vividsolutions.jts.linearref.LengthIndexedLine;
 class HoltsCreek extends SimState
 {
     private static HoltsCreek instance;
+    static long seed;
 
     /* data files */
     private static final String pampoint = "/data/Pampoint/Pampoint_All.shp"; // initial plants (points)
@@ -37,7 +37,7 @@ class HoltsCreek extends SimState
     GeomVectorField initialPlants_vf = new GeomVectorField();
     GeomVectorField reproducingPlants_vf = new GeomVectorField(); // used by DBSCAN
 
-    /* geographic geometries, the network of rivers, and tidally innundated landmass */
+    /* geographic geometries, the network of rivers, and tidally inundated landmass */
     GeomVectorField riverLines_vf = new GeomVectorField();
     GeomVectorField tidal_vf = new GeomVectorField();
     GeomVectorField boundary_vf = new GeomVectorField();
@@ -85,9 +85,10 @@ class HoltsCreek extends SimState
     }
 
     private HoltsCreek(long seed, String[] args)
-    {
+    {     
         super(seed);
-
+        this.seed = seed;
+        
         stochMax = Double.parseDouble(args[0]);
         hydrochoryBool = Boolean.parseBoolean(args[1]);
         implantationRate = Double.parseDouble(args[2]);
@@ -136,7 +137,6 @@ class HoltsCreek extends SimState
     /**
      * Read in the requisite data, do preliminary indexing of rivers and tidal geometries,
      * lay the groundwork for geometry related calculations and visual effects.
-     * @author Michael Crawford
      */
     private void readData()
     {
@@ -245,7 +245,6 @@ class HoltsCreek extends SimState
     /**
      * Drops the plant populations from the pampoint shapefiles into Holts Creek. These plants
      * are adults. They are dropped in a uniform field around the maternal plant.
-     * @author Michael Crawford
      */
     private void setupInitialPlantPopulations()
     {
@@ -272,12 +271,10 @@ class HoltsCreek extends SimState
      * Schedule each special environment once in the future, at the
      * next appropriate time. When it wakes up, the Environment object
      * will be responsible for re-scheduling itself in future years.
-     * @author Michael Crawford
      */
     private void setupEnvironment()
     {
-        schedule.scheduleOnce(
-            Environment.instance().getClockTimeForNextNewYearDate(), Environment.instance());
+        schedule.scheduleOnce(Environment.instance().getClockTimeForNextNewYearDate(), Environment.instance());
     }
 
     public void finish() {

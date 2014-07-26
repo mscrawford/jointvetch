@@ -21,6 +21,11 @@ class Environment implements Steppable
     private static Environment instance;
     private HoltsCreek hc;
 
+    public static final String SIM_STATS_FILE = "/tmp/sim_stats.csv";
+    public static final String CLUSTER_STATS_FILE = "/tmp/cluster_stats.csv";
+    private PrintWriter simStatsPw;
+    private PrintWriter clusterStatsPw;
+
     /* timekeeping */
     enum Month { JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC }
     private static final int DAYS[] = { 31,28,31,30,31,30,31,31,30,31,30,31 };
@@ -62,6 +67,19 @@ class Environment implements Steppable
         
         currentEnvStoch = generateEnvironmentalStochasticity();
         environmentalHistory.add(currentEnvStoch);
+
+        try {
+            new File(SIM_STATS_FILE).delete();
+            new File(CLUSTER_STATS_FILE).delete();
+            simStatsPw = new PrintWriter(new FileWriter(SIM_STATS_FILE));
+            clusterStatsPw = new PrintWriter(new FileWriter(CLUSTER_STATS_FILE));
+            simStatsPw.println("\"year\",\"pop\",\"env\"");
+            clusterStatsPw.println("\"year\",\"cluster.pop\"");
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.err.println("Couldn't initialize output files!");
+            System.exit(1);
+        }
     }
 
     /* ------------------------
@@ -78,13 +96,27 @@ class Environment implements Steppable
 
             int n = hc.reproducingPlants_vf.getGeometries().size();
             populationHistory.add(n);
-            if (n == 0 || n > Parameters.MAX_POPULATION_COUNT || year >= Parameters.MAX_YEAR_COUNT)
-            {
-                printStatistics();
+            if (n == 0 || 
+                n > Parameters.MAX_POPULATION_COUNT ||
+                year >= Parameters.MAX_YEAR_COUNT) {
+                try {
+                    printStatistics();
+                } catch (IOException e) { e.printStackTrace(); }
+                if (year < Parameters.MAX_YEAR_COUNT) {
+                    simStatsPw.println(Parameters.MAX_YEAR_COUNT+","+
+                        populationHistory.get(populationHistory.size()-1)+","+
+                        0);
+                }
+                simStatsPw.close();
+                clusterStatsPw.close();
                 System.exit(0);
             }
 
-            if (VERBOSE) printStatistics();
+            if (VERBOSE) {
+                try {
+                    printStatistics();
+                } catch (IOException e) { e.printStackTrace(); }
+            }
 
             currentEnvStoch = generateEnvironmentalStochasticity();
             environmentalHistory.add(currentEnvStoch);
@@ -140,7 +172,7 @@ class Environment implements Steppable
 /* ------------------------
  * Printing information
  * ------------------------ */
-    private void printStatistics()
+    private void printStatistics() throws java.io.IOException
     {
         System.out.println("Year " + year + ":");
         double[] popHistArr = new double[ populationHistory.size() ];
@@ -209,12 +241,17 @@ class Environment implements Steppable
         {
             System.out.println("Population History: " + populationHistory);
             System.out.println("Environmental History: " + environmentalHistory);
+            simStatsPw.println(year+","+
+                populationHistory.get(populationHistory.size()-1)+","+
+                environmentalHistory.get(environmentalHistory.size()-1));
+            simStatsPw.flush();
+                
             printCoords();
             System.out.println();
         }
     }
 
-    private Bag runClusteringAnalysis()
+    private Bag runClusteringAnalysis() throws java.io.IOException
     {
         DBSCAN dbscan = new DBSCAN();
         Bag clusters = dbscan.getPopulations(
@@ -236,6 +273,7 @@ class Environment implements Steppable
             for (int i = 0, s = clusters.size(); i < s; i++)
             {
                 Bag cluster = (Bag) clusters.get(i);
+                clusterStatsPw.println(year+","+cluster.size());
                 if (i < clusters.size()-1)
                 {
                     System.out.print(cluster.size() + ", ");
@@ -245,6 +283,7 @@ class Environment implements Steppable
                     System.out.println(cluster.size() + "]");
                 }
             }
+            clusterStatsPw.flush();
         }
 
         Bag clusterCounts = new Bag();

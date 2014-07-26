@@ -29,6 +29,7 @@ class HoltsCreek extends SimState
     private static final String waterbody = "/data/Waterbody/waterbody.shp"; // tidal marsh (geometries)
     private static final String rasterFile = "data/waterbody_raster/waterbody_raster.asc.gz"; /* goodness */
     private static final String seedFloatTimesFile = "data/seedFloatTimes.txt";
+    private static final String CACHED_RASTER = "data/waterbody_raster/buttslow.obj";
 
     GeometryFactory factory = new GeometryFactory();
     private Envelope MBR = new Envelope();
@@ -170,12 +171,32 @@ class HoltsCreek extends SimState
             riverNetwork.createFromGeomField(riverLines_vf);
 
             // red raster / competition map
-            GZIPInputStream cis = new GZIPInputStream(new java.io.FileInputStream(rasterFile));
-            ArcInfoASCGridImporter.read(cis, GridDataType.INTEGER, redRaster_gf);
+            if (new File(CACHED_RASTER).exists()) {
+                System.out.println("(Using cached raster object.)");
+                java.io.ObjectInputStream ois = 
+                    new java.io.ObjectInputStream(
+                        new java.io.FileInputStream(CACHED_RASTER));
+                redRaster_gf = (GeomGridField) ois.readObject();
+            } else {
+                System.out.println("No cached raster object." +
+                    " Paying the piper with one-time startup cost.\n" +
+                    " Be patient...");
+                GZIPInputStream cis = new GZIPInputStream(
+                    new java.io.FileInputStream(rasterFile));
+                ArcInfoASCGridImporter.read(cis, GridDataType.INTEGER, 
+                    redRaster_gf);
+                cis.close();
+                System.out.println("Writing cached raster object...");
+                java.io.ObjectOutputStream oos = 
+                    new java.io.ObjectOutputStream(
+                        new java.io.FileOutputStream(CACHED_RASTER));
+                oos.writeObject(redRaster_gf);
+                oos.close();
+                System.out.println("...done.");
+            }
             MBR.expandToInclude(redRaster_gf.getMBR());
             gridHeight = redRaster_gf.getGridHeight();
             gridWidth = redRaster_gf.getGridWidth();
-            cis.close();
 
             // plot grid
             ObjectGrid2D plotGrid = new ObjectGrid2D(gridWidth, gridHeight);

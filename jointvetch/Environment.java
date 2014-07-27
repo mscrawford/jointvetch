@@ -21,8 +21,6 @@ class Environment implements Steppable
     private static Environment instance;
     private HoltsCreek hc;
 
-    public static final String SIM_STATS_FILE = "/tmp/sim_stats.csv";
-    public static final String CLUSTER_STATS_FILE = "/tmp/cluster_stats.csv";
     private PrintWriter simStatsPw;
     private PrintWriter clusterStatsPw;
 
@@ -44,7 +42,6 @@ class Environment implements Steppable
     private List<Integer> populationHistory;
     private List<Double> environmentalHistory;
 
-    static boolean VERBOSE;
     private static final String coordPath = 
         // "/Users/Theodore/Documents/Google_Drive/SJV_EcologicalModelling_Paper/analysis_and_validation/vital_rate_distro_derivation/";
         "/tmp/";
@@ -69,10 +66,12 @@ class Environment implements Steppable
         environmentalHistory.add(currentEnvStoch);
 
         try {
-            new File(SIM_STATS_FILE).delete();
-            new File(CLUSTER_STATS_FILE).delete();
-            simStatsPw = new PrintWriter(new FileWriter(SIM_STATS_FILE));
-            clusterStatsPw = new PrintWriter(new FileWriter(CLUSTER_STATS_FILE));
+            new File(Parameters.SIM_STATS_FILE).delete();
+            new File(Parameters.CLUSTER_STATS_FILE).delete();
+            simStatsPw = new PrintWriter(
+                new FileWriter(Parameters.SIM_STATS_FILE));
+            clusterStatsPw = new PrintWriter(
+                new FileWriter(Parameters.CLUSTER_STATS_FILE));
             simStatsPw.println("\"year\",\"pop\",\"env\"");
             clusterStatsPw.println("\"year\",\"cluster.pop\"");
         } catch (IOException e) {
@@ -112,7 +111,7 @@ class Environment implements Steppable
                 System.exit(0);
             }
 
-            if (VERBOSE) {
+            if (Parameters.VERBOSE) {
                 try {
                     printStatistics();
                 } catch (IOException e) { e.printStackTrace(); }
@@ -237,7 +236,7 @@ class Environment implements Steppable
         s.append((int) Math.sqrt(StatUtils.populationVariance(popHistArr))); // stdev of population history
         System.out.println(s);
 
-        if (VERBOSE)
+        if (Parameters.VERBOSE)
         {
             System.out.println("Population History: " + populationHistory);
             System.out.println("Environmental History: " + environmentalHistory);
@@ -257,7 +256,7 @@ class Environment implements Steppable
         Bag clusters = dbscan.getPopulations(
             hc.reproducingPlants_vf.getGeometries(), Parameters.EPSILON, Parameters.MIN_POINTS);
 
-        if (VERBOSE)
+        if (Parameters.VERBOSE)
         {
             if (clusters.size() > 0)
             {

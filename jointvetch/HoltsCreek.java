@@ -73,6 +73,7 @@ class HoltsCreek extends SimState
         if (instance == null)
         {
             instance = new HoltsCreek(seed, args);
+            Parameters.initParams();
         }
         return instance;
     }
@@ -94,22 +95,48 @@ class HoltsCreek extends SimState
         hydrochoryBool = Boolean.parseBoolean(args[1]);
         implantationRate = Double.parseDouble(args[2]);
         adjustmentFactor = Double.parseDouble(args[3]);
-        Environment.VERBOSE = false;
-        for (int i=0; i<args.length; i++) {
-            if (args[i].equals("-verbose")) {
-                Environment.VERBOSE = true;
+        try {
+            for (int i=0; i<args.length; i++) {
+                if (args[i].equals("-verbose")) {
+                    Parameters.VERBOSE = true;
+                }
+                if (args[i].equals("-tag")) {
+                    Parameters.SIM_TAG = Integer.valueOf(args[i+1]);
+                }
+                if (args[i].equals("-years")) {
+                    Parameters.MAX_YEAR_COUNT = Integer.valueOf(args[i+1]);
+                }
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+            printUsage();
+            System.exit(1);
         }
+        System.out.println("Seed:"+seed);
+        System.out.println("stochMax = " + stochMax);
+        System.out.println("hydrochoryBool = " + hydrochoryBool);
+        System.out.println("implantationRate = " + implantationRate);
+        System.out.println("adjustmentFactor = " + adjustmentFactor);
+        System.out.println("Parameters.VERBOSE = " + Parameters.VERBOSE);
+        System.out.println("Parameters.SIM_TAG = " + Parameters.SIM_TAG);
+        System.out.println("Parameters.MAX_YEAR_COUNT = " +
+            Parameters.MAX_YEAR_COUNT);
 
         assert (stochMax >= 1.0) : "Stochasticity must be 1 or greater.";
+    }
+
+    private static void printUsage() {
+        System.err.println(
+            "Usage: HoltsCreek stochMax hydrochoryBool implantationRate" +
+            " adjustmentFactor [-verbose] [-quiet]" +
+            " [-tag simtagInt] [-years maxYears]" +
+            " [-seed seed].");
     }
 
     public static void main(String[] args) throws Exception
     {
         if (args.length < 4) {
-            System.err.println(
-                "Usage: HoltsCreek stochMax hydrochoryBool implantationRate" +
-                " adjustmentFactor [-verbose] [-quiet] [-seed seed].");
+            printUsage();
             System.exit(1);
         }
         doLoop(new MakesSimState()

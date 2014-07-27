@@ -3,10 +3,10 @@ package jointvetch;
 class Parameters
 {
     // independent variables
-    static final double stochMax;
-    static final boolean hydrochoryBool;
-    static final double implantationRate;
-    static final double adjustmentFactor;
+    static double stochMax;
+    static boolean hydrochoryBool;
+    static double implantationRate;
+    static double adjustmentFactor;
 
     // for first warmUp years, adjustment factor does not exist
     static final int warmUp = 3;
@@ -20,9 +20,13 @@ class Parameters
     static final double IMPLANTATION_MAXIMUM_DISTANCE = 4.0;
 
     // environment's parameters
-    static final int MAX_YEAR_COUNT = 100;
+    static int SIM_TAG;
+    static int MAX_YEAR_COUNT = 100;
     static final int MAX_POPULATION_COUNT = 150000;
     static final int DBSCAN_CUTOFF = 25000; // too big a runtime for clustering analysis
+    static boolean VERBOSE = false;
+    static String SIM_STATS_FILE = "/tmp/sim_stats.csv";
+    static String CLUSTER_STATS_FILE = "/tmp/cluster_stats.csv";
 
     // DBSCAN implementation
     static final double EPSILON = 25.0;
@@ -79,12 +83,14 @@ class Parameters
         0.00024, 0.00024, 0.00024, 0.00024, 0.00024, 0.00024, 0.00024, 0.00024, 
         0.00024, 0.00024, 0.00024, 0.00024 };
 
-    static
+    static void initParams()
     {
         stochMax = HoltsCreek.instance().getStochMax();
         hydrochoryBool = HoltsCreek.instance().getHydrochoryBool();
         implantationRate = HoltsCreek.instance().getImplantationRate();
         adjustmentFactor = HoltsCreek.instance().getAdjustmentFactor();
+        SIM_STATS_FILE = "/tmp/sim_stats.csv" + SIM_TAG;
+        CLUSTER_STATS_FILE = "/tmp/cluster_stats.csv" + SIM_TAG;
     }
 
     // Suppress default constructor for noninstantiability

@@ -1,0 +1,1 @@
+nohup Rscript startServer.R &

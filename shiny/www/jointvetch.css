@@ -1,6 +1,8 @@
 
 input[type=number] { width:5em;text-align:right; }
 
-#SJV { font-style:italic; color:#006000; font-family:serif; }
+#SJV { font-style:italic; }
+#SJV, #creds { color:#006000; font-family:serif; }
 
 #log { margin-top:10px; }
+#creds { font-size:small; margin-bottom:-10px; }

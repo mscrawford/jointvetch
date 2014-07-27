@@ -45,6 +45,17 @@ shinyServer(function(input,output,session) {
         )
     }
 
+    cluster.stats <- function() {
+        if (!file.exists(paste0(CLUSTER.STATS.FILE,simtag))) {
+            return(data.frame())
+        }
+        tryCatch({
+            read.csv(paste0(CLUSTER.STATS.FILE,simtag),header=TRUE,
+                stringsAsFactors=FALSE)
+        },error = function(e) return(data.frame())
+        )
+    }
+
     seed <- function() {
         if (!file.exists(paste0(OUT.FILE,simtag))) {
             return(NA)
@@ -73,6 +84,7 @@ shinyServer(function(input,output,session) {
             }
         })
         sim.stats.df <- sim.stats()
+        cluster.stats.df <- cluster.stats()
         output$log <- renderText(HTML(paste0("<b>Log output:</b><br/>",
             "sim #",simtag,"<br/>",
             "seed: ",seed(),"<br/>")))
@@ -91,14 +103,14 @@ shinyServer(function(input,output,session) {
                 }
                 png(paste(paste0(PLOT.SAVE.DIR,simtag),"pop.png",
                     sep="/"))
-                plot.sim.stats(input,sim.stats.df,seed())
+                plot.time.serieses(input,sim.stats.df,cluster.stats.df,seed())
                 dev.off()
                 progress$close()
             } else {
                 # Check output files again in a bit.
                 invalidateLater(REFRESH.PERIOD.MILLIS,session)
             }
-            plot.sim.stats(input,sim.stats.df,seed())
+            plot.time.serieses(input,sim.stats.df,cluster.stats.df,seed())
         } else {
             invalidateLater(REFRESH.PERIOD.MILLIS,session)
             frame()
@@ -106,11 +118,11 @@ shinyServer(function(input,output,session) {
     })
 })
 
-plot.sim.stats <- function(input,sim.stats.df,seed) {
+plot.time.serieses <- function(input,sim.stats.df,cluster.stats.df,seed) {
     isolate({
         sim.stats.df[setdiff(1:max(sim.stats.df$year),sim.stats.df$year),
             c("pop","env")] <- c(0,NA)
-        par(mfrow=c(2,1))
+        par(mfrow=c(3,1))
         plot(sim.stats.df$year,sim.stats.df$pop,
             type="l",col="darkgreen",lwd=2,
             main="Total population",
@@ -120,6 +132,12 @@ plot.sim.stats <- function(input,sim.stats.df,seed) {
                 "AdjFact=",input$adjFact,", ",
                 "Seed=",seed,")"),
             ylab="Population (plants)",
+            xlab="Year",
+            xlim=c(0,input$maxYrs))
+        plot(cluster.stats.df$year,cluster.stats.df$cluster.pop,
+            type="p",col="blue",pch=20,
+            main="Cluster analysis",
+            ylab="Per-cluster populations",
             xlab="Year",
             xlim=c(0,input$maxYrs))
         plot(sim.stats.df$year,sim.stats.df$env,
@@ -148,6 +166,6 @@ start.sim <- function(input,simtag) {
     })
 }
 
-kill.sim <- function() {
+kill.all.sims <- function() {
     system("pkill -f jointvetch")
 }

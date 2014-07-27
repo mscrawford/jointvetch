@@ -298,7 +298,8 @@ class Environment implements Steppable
     private void printCoords()
     {       
         try {
-            File file = new File(coordPath, "PLANT_COORDS.txt");
+            File file = new File(coordPath, "PLANT_COORDS.csv" + 
+                Parameters.SIM_TAG + "." + year);
             BufferedWriter output = new BufferedWriter(new FileWriter(file));
             for (int i = 0, s = hc.reproducingPlants_vf.getGeometries().size(); i < s; i++)
             {

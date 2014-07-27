@@ -2,7 +2,7 @@ library(raster)
 library(rgdal)
 
 options(digits=22)
-path = "../data/shapefiles/"
+path = "../jointvetch/data/shapefiles/"
 
 initialPopulations <- function() {
     asc.rg <- raster(paste0(path,"waterbody_raster.asc"))
@@ -15,7 +15,6 @@ initialPopulations <- function() {
 }
 
 rasterCells <- function() {
-browser()
     waterbody <- raster(paste0(path,"waterbody_raster.asc"))
     plants <- read.table("PLANT_COORDS.txt", sep=",", col.names=c("X", "Y"),
         stringsAsFactors=FALSE)
@@ -23,13 +22,17 @@ browser()
     cat(colors)
 }
 
-plants <- function() {
+plants <- function(plants.df) {
     plants <- read.table("PLANT_COORDS.txt", sep=",", col.names=c("X", "Y"),
         stringsAsFactors=FALSE)
+    plot.plants(plants)
+}
+
+plot.plants <- function(plants.df) {
     riverFlow.rg <- readOGR(path, "riverFlow")
     asc.rg <- raster(paste0(path,"waterbody_raster.asc"))
     
     image(asc.rg, col=terrain.colors(256), asp=1, main="------")
     lines(riverFlow.rg, asp=1, col="darkblue", cex=.001)
-    points(plants$X, plants$Y, asp=1, cex=.001, pch=20, col="red")
+    points(plants.df$X, plants.df$Y, asp=1, cex=.001, pch=20, col="red")
 }

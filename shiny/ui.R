@@ -42,8 +42,7 @@ shinyUI(fluidPage(title="Aeschynomene",
                 tabPanel("Time series",
                     plotOutput("timeSeriesPlots",height="1400px")),
                 tabPanel("Map",
-#                    plotOutput("map"))
-                    h1("Under construction"))
+                    plotOutput("map",height="1100px"))
             )
         )
     )

@@ -1,12 +1,17 @@
 
 require(shiny)
 
-JOINT.VETCH.ROOT <- "/home/stephen/muskrat/jointvetch"
+source("../jointvetch/scripts/plantClusterMapping.R")
+
+JOINT.VETCH.ROOT <- "/home/stephen/research/muskrat/jointvetch"
 CLASSES.DIR <- "/tmp/classes"
 
 OUT.FILE <- "/tmp/output"
 SIM.STATS.FILE <- "/tmp/sim_stats.csv"
 CLUSTER.STATS.FILE <- "/tmp/cluster_stats.csv"
+PLANT.COORDS.FILENAME <- "PLANT_COORDS.csv"
+PLANT.COORDS.DIR <- "/tmp"
+PLANT.COORDS.FILE <- paste(PLANT.COORDS.DIR,PLANT.COORDS.FILENAME,sep="/")
 PLOT.SAVE.DIR <- "/tmp/plots"
 
 REFRESH.PERIOD.MILLIS <- 500
@@ -33,6 +38,7 @@ shinyServer(function(input,output,session) {
     sim.started <- FALSE
     progress <- NULL
     simtag <- 0
+    plant.coords.df <- data.frame(year=0,X=0,Y=0)
 
     sim.stats <- function() {
         if (!file.exists(paste0(SIM.STATS.FILE,simtag))) {
@@ -54,6 +60,28 @@ shinyServer(function(input,output,session) {
                 stringsAsFactors=FALSE)
         },error = function(e) return(data.frame())
         )
+    }
+
+    plant.coords <- function() {
+
+        max.yr <- max(as.numeric(
+            sub(paste0(PLANT.COORDS.FILENAME,simtag,"\\.(\\d*)"),"\\1",
+            list.files(PLANT.COORDS.DIR,
+                pattern=(paste0(PLANT.COORDS.FILENAME,simtag,"\\..*"))))))
+
+        if (max.yr == max(plant.coords.df$year)) {
+            return(plant.coords.df)
+        }
+        for (yr in (max(plant.coords.df$year)+1):max.yr) {
+            output$log <- renderText(paste("reading",yr))
+            tryCatch({
+                new.yr <- read.csv(
+                    paste0(PLANT.COORDS.FILE,simtag,".",yr),header=FALSE)
+                names(new.yr) <- c("X","Y")
+                plant.coords.df <<- rbind(plant.coords.df, cbind(year=yr,new.yr))
+            }, error=function(e) e )
+        }
+        return(plant.coords.df)
     }
 
     seed <- function() {
@@ -116,7 +144,21 @@ shinyServer(function(input,output,session) {
             frame()
         }
     })
+
+    output$map <- renderPlot({
+        if (!file.exists(paste0(PLANT.COORDS.FILE,simtag,".1"))) {
+            initialPopulations()
+        } else {
+            plant.coords.df <- plant.coords() 
+            plot.plants(plant.coords.df[
+                plant.coords.df$year==max(plant.coords.df$year),c("X","Y")])
+        }
+        if (sim.started) {
+            invalidateLater(REFRESH.PERIOD.MILLIS,session)
+        }
+    })
 })
+
 
 plot.time.serieses <- function(input,sim.stats.df,cluster.stats.df,seed) {
     isolate({

@@ -95,8 +95,10 @@ shinyServer(function(input,output,session) {
         )
     }
 
-    output$timeSeriesPlots <- renderPlot({
+
+    observe({
         if (input$runsim < 1) return(NULL)
+
         isolate({
             if (!sim.started) {
                 simtag <<- ceiling(runif(1,1,1e8))
@@ -110,21 +112,37 @@ shinyServer(function(input,output,session) {
                 progress$set(message="Initializing simulation...",value=1)
                 sim.started <<- TRUE
             }
+
+            output$log <- renderText(HTML(paste0("<b>Log output:</b><br/>",
+                "sim #",simtag,"<br/>",
+                "seed: ",seed(),"<br/>")))
+
+            sim.stats.df <- sim.stats()
+            maxYrs <- isolate(input$maxYrs)
+            if (nrow(sim.stats.df) > 0) {
+                progress$set("Running simulation...",
+                    detail=paste(max(sim.stats.df$year),"of",maxYrs,
+                        "years"),
+                    value=1+max(sim.stats.df$year))
+                if (max(sim.stats.df$year) == maxYrs) {
+                    progress$set("Done.",value=1+maxYrs)
+                    sim.started <<- FALSE
+                    progress$close()
+                    return()
+                }
+            }
         })
+        invalidateLater(REFRESH.PERIOD.MILLIS,session)
+    })
+
+    output$timeSeriesPlots <- renderPlot({
+
+        if (input$runsim < 1) return(NULL)
         sim.stats.df <- sim.stats()
         cluster.stats.df <- cluster.stats()
-        output$log <- renderText(HTML(paste0("<b>Log output:</b><br/>",
-            "sim #",simtag,"<br/>",
-            "seed: ",seed(),"<br/>")))
         maxYrs <- isolate(input$maxYrs)
         if (nrow(sim.stats.df) > 0) {
-            progress$set("Running simulation...",
-                detail=paste(max(sim.stats.df$year),"of",maxYrs,
-                    "years"),
-                value=1+max(sim.stats.df$year))
             if (max(sim.stats.df$year) == maxYrs) {
-                progress$set("Done.",value=1+maxYrs)
-                sim.started <<- FALSE
                 if (!file.exists(paste0(PLOT.SAVE.DIR,simtag))) {
                     dir.create(paste0(PLOT.SAVE.DIR,simtag),
                         recursive=TRUE)
@@ -133,29 +151,39 @@ shinyServer(function(input,output,session) {
                     sep="/"))
                 plot.time.serieses(input,sim.stats.df,cluster.stats.df,seed())
                 dev.off()
-                progress$close()
-            } else {
-                # Check output files again in a bit.
-                invalidateLater(REFRESH.PERIOD.MILLIS,session)
             }
             plot.time.serieses(input,sim.stats.df,cluster.stats.df,seed())
         } else {
-            invalidateLater(REFRESH.PERIOD.MILLIS,session)
             frame()
-        }
-    })
-
-    output$map <- renderPlot({
-        if (!file.exists(paste0(PLANT.COORDS.FILE,simtag,".1"))) {
-            initialPopulations()
-        } else {
-            plant.coords.df <- plant.coords() 
-            plot.plants(plant.coords.df[
-                plant.coords.df$year==max(plant.coords.df$year),c("X","Y")])
         }
         if (sim.started) {
             invalidateLater(REFRESH.PERIOD.MILLIS,session)
         }
+    })
+
+#    output$animationControl <- renderUI({
+#        sliderInput("animation","Year",min=1,max=50,step=1,value=1,
+#            animate=animationOptions(interval=500,loop=FALSE))
+#    })
+
+    output$map <- renderPlot({
+        if (!file.exists(paste0(PLANT.COORDS.FILE,simtag,".1"))) {
+            initialPopulations()
+            invalidateLater(1000,session)
+        } else {
+            if (sim.started) {
+                plant.coords.df <- plant.coords() 
+                plot.plants(plant.coords.df[plant.coords.df$year==
+                    max(plant.coords.df$year),c("X","Y")])
+                invalidateLater(REFRESH.PERIOD.MILLIS,session)
+            } else {
+            }
+        }
+    })
+
+    output$animationImage <- renderImage({
+        list(src=paste0("/tmp/RtmpVb0QSs/images/Rplot",
+            input$animation,".png"),height=1200)
     })
 })
 
@@ -175,19 +203,19 @@ plot.time.serieses <- function(input,sim.stats.df,cluster.stats.df,seed) {
                 "Seed=",seed,")"),
             ylab="Population (plants)",
             xlab="Year",
-            xlim=c(0,input$maxYrs))
+            xlim=c(1,input$maxYrs))
         plot(cluster.stats.df$year,cluster.stats.df$cluster.pop,
             type="p",col="blue",pch=20,
             main="Cluster analysis",
             ylab="Per-cluster populations",
             xlab="Year",
-            xlim=c(0,input$maxYrs))
+            xlim=c(1,input$maxYrs))
         plot(sim.stats.df$year,sim.stats.df$env,
             type="l",col="brown",lwd=2,
             main="Environmental history",
             ylab="Yearly environmental adjustment factor",
             xlab="Year",
-            xlim=c(0,input$maxYrs))
+            xlim=c(1,input$maxYrs))
     })
 }
 

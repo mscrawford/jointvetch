@@ -32,7 +32,7 @@ shinyUI(fluidPage(title="Aeschynomene",
             conditionalPanel(condition="input.seedType == 'specific'",
                 numericInput("seed","Seed",value=0)),
             numericInput("maxYrs","(Max) number of years",
-                value=50,min=1,step=1)
+                value=5,min=1,step=1)
             ),
             actionButton("runsim",label="Run sim"),
             htmlOutput("log")
@@ -42,7 +42,11 @@ shinyUI(fluidPage(title="Aeschynomene",
                 tabPanel("Time series",
                     plotOutput("timeSeriesPlots",height="1400px")),
                 tabPanel("Map",
-                    plotOutput("map",height="1100px"))
+                    plotOutput("map",height="1100px"),
+                    imageOutput("animationImage",height="500px"),
+        sliderInput("animation","Year",min=1,max=50,step=1,value=1,
+            animate=animationOptions(interval=500,loop=FALSE)))
+#                    uiOutput("animationControl"))
             )
         )
     )

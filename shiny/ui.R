@@ -8,13 +8,19 @@ shinyUI(fluidPage(title="Aeschynomene",
 
     progressInit(),
 
-    headerPanel(HTML(paste0("<span id=SJV>Aeschynomene</span>",
-        "&nbsp;&nbsp;<img src=\"sjv.jpg\" width=\"80px\"/><br/>",
-        "<span id=creds>Michael Crawford, Stephen Davies, Alan Griffith -- ",
-        "University of Mary Washington</span>"))),
+    headerPanel(""),
 
     sidebarLayout(
-        sidebarPanel(
+        sidebarPanel(HTML(paste0("<table border=0>",
+        "<tr><td>",
+        "<div id=SJV>Aeschynomene</div>",
+        "<div class=creds>",
+        "<span>",
+        "Michael Crawford, ",
+        "Stephen Davies, ",
+        "Alan Griffith</span><br/>",
+        "University of Mary Washington</div></td>",
+        "<td><img src=\"sjv.jpg\" width=\"80px\" style=\"margin-left:10px;margin-right:10px;\"/></td></tr></table>")),
             h4("Simulation parameters"),
             fluidRow(
             numericInput("envStochMax","Environmental stochasticity max",
@@ -42,11 +48,11 @@ shinyUI(fluidPage(title="Aeschynomene",
                 tabPanel("Time series",
                     plotOutput("timeSeriesPlots",height="1400px")),
                 tabPanel("Map",
-                    plotOutput("map",height="1100px"),
-                    imageOutput("animationImage",height="500px"),
-        sliderInput("animation","Year",min=1,max=50,step=1,value=1,
-            animate=animationOptions(interval=500,loop=FALSE)))
-#                    uiOutput("animationControl"))
+                    verticalLayout(
+                        imageOutput("animationImage",width="100%",height="100%"),
+                        uiOutput("animationControl")))
+#                    sliderInput("animation","Year",min=1,max=5,step=1,value=1,
+#                        animate=animationOptions(interval=500,loop=FALSE)))
             )
         )
     )

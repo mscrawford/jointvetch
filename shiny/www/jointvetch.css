@@ -1,8 +1,15 @@
 
 input[type=number] { width:5em;text-align:right; }
 
-#SJV { font-style:italic; }
-#SJV, #creds { color:#006000; font-family:serif; }
+#SJV { font-style:italic;font-size:20pt;font-weight:bold;text-align:center; }
+#SJV, .creds { color:#006000; font-family:serif; }
 
 #log { margin-top:10px; }
-#creds { font-size:small; margin-bottom:-10px; }
+.creds { font-size:8pt; margin-top:20px; margin-bottom:-10px; text-align:center; }
+
+#animationImage, #animationControl { text-align:center; }
+
+#apptitle { text-align:center; }
+#apptitle #SJV { margin-right:18px; }
+table, .jslider { margin:auto; }
+

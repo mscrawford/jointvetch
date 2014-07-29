@@ -1,5 +1,8 @@
 
 require(shiny)
+require(doParallel)
+registerDoParallel(24)
+
 
 source("../jointvetch/scripts/plantClusterMapping.R")
 
@@ -73,12 +76,12 @@ shinyServer(function(input,output,session) {
             return(plant.coords.df)
         }
         for (yr in (max(plant.coords.df$year)+1):max.yr) {
-            output$log <- renderText(paste("reading",yr))
             tryCatch({
                 new.yr <- read.csv(
                     paste0(PLANT.COORDS.FILE,simtag,".",yr),header=FALSE)
                 names(new.yr) <- c("X","Y")
-                plant.coords.df <<- rbind(plant.coords.df, cbind(year=yr,new.yr))
+                plant.coords.df <<- 
+                    rbind(plant.coords.df, cbind(year=yr,new.yr))
             }, error=function(e) e )
         }
         return(plant.coords.df)
@@ -103,6 +106,10 @@ shinyServer(function(input,output,session) {
             if (!sim.started) {
                 simtag <<- ceiling(runif(1,1,1e8))
                 cat("starting sim!",simtag,"\n")
+                plant.coords.df <<- data.frame(year=0,X=0,Y=0)
+                output$animationImage <- renderImage(
+                    {list(src="dude",alt="Processing. Please wait...")})
+                output$animationControl <- renderUI({})
                 progress <<- Progress$new(session,min=0,max=input$maxYrs+1)
                 progress$set(message="Launching simulation...",value=0)
                 lapply(c(paste0(SIM.STATS.FILE,simtag),
@@ -128,6 +135,36 @@ shinyServer(function(input,output,session) {
                     progress$set("Done.",value=1+maxYrs)
                     sim.started <<- FALSE
                     progress$close()
+                    progress <<- Progress$new(session,min=0,max=input$maxYrs)
+                    progress$set(message="Building animation...",value=0)
+                    if (!file.exists(paste0(PLOT.SAVE.DIR,simtag))) {
+                        dir.create(paste0(PLOT.SAVE.DIR,simtag),
+                            recursive=TRUE)
+                    }
+                    plant.coords.df <- plant.coords()
+                    foreach (year=1:input$maxYrs) %dopar% {
+                        progress$set(message="Building animation...",
+                            value=year)
+                        png(paste0(PLOT.SAVE.DIR,simtag,"/animation",
+                            year,".png"),width=700,height=700)
+                        plot.plants(plant.coords.df[
+                            plant.coords.df$year==year,],simtag)
+                        dev.off()
+                    } 
+                    progress$close()
+
+                    output$animationControl <- renderUI({
+                        sliderInput("animation","Year",
+                            min=1,max=input$maxYrs,step=1,value=1,
+                            animate=animationOptions(
+                                                interval=500,loop=FALSE)
+                        )
+                    })
+                    output$animationImage <-
+                        renderImage({
+                            list(src=paste0(PLOT.SAVE.DIR,simtag,"/animation",
+                                                input$animation,".png"),
+                            alt="",height="750")},deleteFile=FALSE)
                     return()
                 }
             }
@@ -161,30 +198,6 @@ shinyServer(function(input,output,session) {
         }
     })
 
-#    output$animationControl <- renderUI({
-#        sliderInput("animation","Year",min=1,max=50,step=1,value=1,
-#            animate=animationOptions(interval=500,loop=FALSE))
-#    })
-
-    output$map <- renderPlot({
-        if (!file.exists(paste0(PLANT.COORDS.FILE,simtag,".1"))) {
-            initialPopulations()
-            invalidateLater(1000,session)
-        } else {
-            if (sim.started) {
-                plant.coords.df <- plant.coords() 
-                plot.plants(plant.coords.df[plant.coords.df$year==
-                    max(plant.coords.df$year),c("X","Y")])
-                invalidateLater(REFRESH.PERIOD.MILLIS,session)
-            } else {
-            }
-        }
-    })
-
-    output$animationImage <- renderImage({
-        list(src=paste0("/tmp/RtmpVb0QSs/images/Rplot",
-            input$animation,".png"),height=1200)
-    })
 })
 
 
@@ -203,25 +216,45 @@ plot.time.serieses <- function(input,sim.stats.df,cluster.stats.df,seed) {
                 "Seed=",seed,")"),
             ylab="Population (plants)",
             xlab="Year",
-            xlim=c(1,input$maxYrs))
+            xlim=c(1,input$maxYrs),
+            cex.axis=1.5, cex.main=1.5,
+            cex.sub=1.5, cex.lab=1.5,
+            ylim=c(0,max(sim.stats.df$pop)))
+        abline(h=seq(0,max(sim.stats.df$pop),100),lty=2,col="grey")
         plot(cluster.stats.df$year,cluster.stats.df$cluster.pop,
             type="p",col="blue",pch=20,
             main="Cluster analysis",
             ylab="Per-cluster populations",
             xlab="Year",
-            xlim=c(1,input$maxYrs))
+            xlim=c(1,input$maxYrs),
+            cex.axis=1.5, cex.main=1.5,
+            cex.sub=1.5, cex.lab=1.5,
+            ylim=c(0,max(cluster.stats.df$cluster.pop)))
+        abline(h=seq(0,max(cluster.stats.df$cluster.pop),10),lty=2,col="grey")
         plot(sim.stats.df$year,sim.stats.df$env,
             type="l",col="brown",lwd=2,
             main="Environmental history",
             ylab="Yearly environmental adjustment factor",
             xlab="Year",
-            xlim=c(1,input$maxYrs))
+            xlim=c(1,input$maxYrs),
+            cex.axis=1.5, cex.main=1.5,
+            cex.sub=1.5, cex.lab=1.5,
+            ylim=c(0,5))
+        abline(h=seq(0,5,.5),lty=2,col="grey")
     })
 }
 
 start.sim <- function(input,simtag) {
     setwd(paste0(JOINT.VETCH.ROOT,"/jointvetch"))
     isolate({
+        if (!file.exists(CLASSES.DIR)) {
+            cat("Compiling Java...\n")
+            dir.create(CLASSES.DIR,recursive=TRUE)
+            system(paste0("cd ",JOINT.VETCH.ROOT,"/jointvetch ; ",
+                "javac -classpath ",
+                paste0("../lib/",libs,collapse=":"),
+                " -d ",CLASSES.DIR," *.java"))
+        }
         system(paste("nice java -classpath ",classpath,
             "-Xmx8g jointvetch.HoltsCreek",
             input$envStochMax,
